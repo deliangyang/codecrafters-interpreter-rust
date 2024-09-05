@@ -169,7 +169,8 @@ impl<'a> Lexing<'a> {
                         }
                         s.push(self.get_char());
                     }
-                    panic!("unterminated string");
+                    self.errors.push(format!("[line {}] Error: Unterminated string.", self.lines+1));
+                    eprintln!("[line {}] Error: Unterminated string.", self.lines+1);
                 }
                 '(' => {
                     self.get_char();
