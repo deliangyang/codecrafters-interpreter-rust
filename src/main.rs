@@ -36,6 +36,8 @@ enum Token {
 
     Greater, // >
     GreaterEqual, // >=
+
+    Comment(String), // //
 }
 
 static KEYWORDS: [&str; 1] = ["var"];
@@ -70,6 +72,7 @@ impl Display for  Token {
             Token::LessEqual => write!(f, "LESS_EQUAL <= null"),
             Token::Greater => write!(f, "GREATER > null"),
             Token::GreaterEqual => write!(f, "GREATER_EQUAL >= null"),
+            Token::Comment(s) => write!(f, "COMMENT //{} null", s),
         }
     }
 }
@@ -84,7 +87,7 @@ struct Lexing<'a> {
 
 impl<'a> Lexing<'a> {
     fn new(input: &str) -> Lexing {
-        let l = input.len();
+        let l = input.chars().count();
         let input = input.chars();
         Lexing {
             input,
@@ -189,6 +192,19 @@ impl<'a> Lexing<'a> {
                 }
                 '/' => {
                     self.get_char();
+                    if self.peek() == '/' {
+                        let mut s = String::new();
+                        self.get_char();
+                        while self.l > self.position {
+                            let c = self.peek();
+                            if c == '\n' {
+                                self.get_char();
+                                break;
+                            }
+                            s.push(self.get_char());
+                        }
+                        return Token::Comment(s);
+                    }
                     return Token::Slash;
                 }
                 '-' => {
@@ -261,9 +277,10 @@ fn main() {
                     let token = lex.next();
                     match token {
                         Token::EOF => {
-                            println!("EOF  null");
+                            println!("{}", token);
                             break
                         },
+                        Token::Comment(_) => {},
                         _ => {
                             println!("{}", token);
                         },
