@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::process::exit;
 use std::str::Chars;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum Token {
     VAR,
     AND,
@@ -381,28 +381,36 @@ impl<'a> Parse<'a> {
                 }
                 Token::TRUE => {
                     self.next();
-                    println!("true");
+                    print!("true");
                 }
                 Token::FALSE => {
                     self.next();
-                    println!("false");
+                    print!("false");
                 }
                 Token::NIL => {
                     self.next();
-                    println!("nil");
+                    print!("nil");
                 }
                 Token::STRING(s) => {
                     self.next();
-                    println!("{}", s);
+                    print!("{}", s);
+                }
+                Token::LeftParen => {
+                    self.next();
+                    print!("(group ");
+                }
+                Token::RightParen => {
+                    self.next();
+                    print!(")");
                 }
                 Token::Number(n) => {
                     self.next();
                     let num = n.parse::<f64>().unwrap();
                     let inum = (num as i64) as f64;
                     if num > inum {
-                        println!("{}", num)
+                        print!("{}", num)
                     } else {
-                        println!("{}.0", num)
+                        print!("{}.0", num)
                     }
                 }
                 _ => {
