@@ -82,7 +82,7 @@ struct Lexing<'a> {
     position: usize,
     l: usize,
     lines: usize,
-    exit: i32,
+    errors: Vec<String>,
 }
 
 impl<'a> Lexing<'a> {
@@ -94,13 +94,17 @@ impl<'a> Lexing<'a> {
             position: 0,
             l,
             lines: 0,
-            exit: 0,
+            errors: Vec::new(),
         }
     }
 
     fn get_char(&mut self) ->char {
         self.position += 1;
-        self.input.nth(0).unwrap()
+        let c = self.input.nth(0).unwrap();
+        if c == '\n' {
+            self.lines += 1;
+        }
+        c
     }
 
     fn peek(&mut self) -> char {
@@ -116,9 +120,6 @@ impl<'a> Lexing<'a> {
             match c {
                 ' ' | '\n' | '\t' => {
                     self.get_char();
-                    if c == '\n' {
-                        self.lines += 1;
-                    }
                     continue;
                 }
                 '=' => {
@@ -241,8 +242,8 @@ impl<'a> Lexing<'a> {
                 }
                 _ => {
                     let c = self.get_char();
+                    self.errors.push(format!("[line {}] Error: Unexpected character: {}", self.lines+1, c));
                     eprintln!("[line {}] Error: Unexpected character: {}", self.lines+1, c);
-                    self.exit = 65;
                 }
             }
         }
@@ -286,7 +287,11 @@ fn main() {
                         },
                     }
                 }
-                exit(lex.exit)
+                let mut return_code = 0;
+                if lex.errors.len() > 0 {
+                    return_code = 65;
+                }
+                exit(return_code);
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
             }
