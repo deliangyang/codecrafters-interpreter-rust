@@ -26,6 +26,8 @@ enum Token {
     Plus, // +
     Comma, // ,
     Dot, // .
+
+    EqualEqual, // ==
 }
 
 static KEYWORDS: [&str; 1] = ["var"];
@@ -53,6 +55,7 @@ impl Display for  Token {
             Token::Plus => write!(f, "PLUS + null"),
             Token::Comma => write!(f, "COMMA , null"),
             Token::Dot => write!(f, "DOT . null"),
+            Token::EqualEqual => write!(f, "EQUAL_EQUAL == null"),
         }
     }
 }
@@ -84,7 +87,10 @@ impl<'a> Lexing<'a> {
     }
 
     fn peek(&mut self) -> char {
-        self.input.clone().nth(0).unwrap()
+        if self.l > self.position {
+            return self.input.clone().nth(0).unwrap();
+        }
+        return '\0';
     }
 
     fn next(&mut self) -> Token {
@@ -100,6 +106,10 @@ impl<'a> Lexing<'a> {
                 }
                 '=' => {
                     self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::EqualEqual;
+                    }
                     return Token::EQUAL;
                 }
                 ';' => {
