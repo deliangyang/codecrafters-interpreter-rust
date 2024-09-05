@@ -75,10 +75,12 @@ impl Display for  Token {
             Token::GreaterEqual => write!(f, "GREATER_EQUAL >= null"),
             Token::Comment(s) => write!(f, "COMMENT //{} null", s),
             Token::Number(n) => {
-                if !n.contains(".") {
-                    write!(f, "NUMBER {} {}.0", n, n.parse::<f64>().unwrap())
+                let num = n.parse::<f64>().unwrap();
+                let inum = (num as i64) as f64;
+                if num  > inum {
+                    write!(f, "NUMBER {} {}", n, num)
                 } else {
-                    write!(f, "NUMBER {} {}", n, n.parse::<f64>().unwrap())
+                    write!(f, "NUMBER {} {}.0", n, num)
                 }
             },
         }
@@ -254,11 +256,11 @@ impl<'a> Lexing<'a> {
                     self.get_char();
                     return Token::Dot;
                 }
-                'Z'..'a' => {
+                'a' ..='z' | 'A' ..= 'Z' | '_' => {
                     let mut s = String::new();
                     while self.l > self.position {
                         let c = self.peek();
-                        if c.is_alphabetic() {
+                        if c.is_alphabetic() || c == '_' || c.is_numeric() {
                             s.push(self.get_char());
                         } else {
                             break;
