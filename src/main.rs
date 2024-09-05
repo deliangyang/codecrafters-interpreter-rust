@@ -28,36 +28,36 @@ enum Token {
     EQUAL,
     STRING(String),
     Number(String),
-    SEMICOLON,  // ;
-    EOF,        // null
+    SEMICOLON, // ;
+    EOF,       // null
 
-    LeftParen, // (
+    LeftParen,  // (
     RightParen, // )
 
-    LeftBrace, // {
+    LeftBrace,  // {
     RightBrace, // }
     // ,, ., -, +, ; and *. /
-    Star, // *
+    Star,  // *
     Slash, // /
     Minus, // -
-    Plus, // +
+    Plus,  // +
     Comma, // ,
-    Dot, // .
+    Dot,   // .
 
     EqualEqual, // ==
-    Bang, // !
-    BangEqual, // !=
+    Bang,       // !
+    BangEqual,  // !=
 
-    Less, // <
+    Less,      // <
     LessEqual, // <=
 
-    Greater, // >
+    Greater,      // >
     GreaterEqual, // >=
 
     Comment(String), // //
 }
 
-impl Display for  Token {
+impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Token::VAR => write!(f, "VAR var null"),
@@ -102,12 +102,12 @@ impl Display for  Token {
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;
-                if num  > inum {
+                if num > inum {
                     write!(f, "NUMBER {} {}", n, num)
                 } else {
                     write!(f, "NUMBER {} {}.0", n, num)
                 }
-            },
+            }
         }
     }
 }
@@ -120,7 +120,6 @@ struct Lexing<'a> {
     errors: Vec<String>,
     keywords: HashMap<&'static str, Token>,
 }
-
 
 impl<'a> Lexing<'a> {
     fn new(input: &str) -> Lexing {
@@ -153,11 +152,11 @@ impl<'a> Lexing<'a> {
         }
     }
 
-    fn is_keyword(&self, var: &str) ->bool {
+    fn is_keyword(&self, var: &str) -> bool {
         self.keywords.contains_key(var)
     }
 
-    fn get_char(&mut self) ->char {
+    fn get_char(&mut self) -> char {
         self.position += 1;
         let c = self.input.nth(0).unwrap();
         if c == '\n' {
@@ -174,8 +173,8 @@ impl<'a> Lexing<'a> {
     }
 
     fn peek_n(&mut self, n: usize) -> char {
-        if self.l > self.position + n {
-            return self.input.clone().nth(n-1).unwrap();
+        if self.l > self.position + n - 1 {
+            return self.input.clone().nth(n - 1).unwrap();
         }
         return '\0';
     }
@@ -185,7 +184,7 @@ impl<'a> Lexing<'a> {
     }
 
     fn next(&mut self) -> Token {
-        while self.l > self.position  {
+        while self.l > self.position {
             let c = self.peek();
             match c {
                 ' ' | '\n' | '\t' => {
@@ -239,8 +238,11 @@ impl<'a> Lexing<'a> {
                         }
                         s.push(self.get_char());
                     }
-                    self.errors.push(format!("[line {}] Error: Unterminated string.", self.lines+1));
-                    eprintln!("[line {}] Error: Unterminated string.", self.lines+1);
+                    self.errors.push(format!(
+                        "[line {}] Error: Unterminated string.",
+                        self.lines + 1
+                    ));
+                    eprintln!("[line {}] Error: Unterminated string.", self.lines + 1);
                 }
                 '0'..='9' => {
                     let mut s = String::new();
@@ -309,7 +311,7 @@ impl<'a> Lexing<'a> {
                     self.get_char();
                     return Token::Dot;
                 }
-                'a' ..='z' | 'A' ..= 'Z' | '_' => {
+                'a'..='z' | 'A'..='Z' | '_' => {
                     let mut s = String::new();
                     while self.l > self.position {
                         let c = self.peek();
@@ -323,8 +325,16 @@ impl<'a> Lexing<'a> {
                         match self.keywords.get(s.to_lowercase().as_str()) {
                             Some(t) => return t.clone(),
                             None => {
-                                self.errors.push(format!("[line {}] Error: Unknown keyword: {}", self.lines+1, s));
-                                eprintln!("[line {}] Error: Unknown keyword: {}", self.lines+1, s);
+                                self.errors.push(format!(
+                                    "[line {}] Error: Unknown keyword: {}",
+                                    self.lines + 1,
+                                    s
+                                ));
+                                eprintln!(
+                                    "[line {}] Error: Unknown keyword: {}",
+                                    self.lines + 1,
+                                    s
+                                );
                             }
                         }
                     } else {
@@ -333,8 +343,16 @@ impl<'a> Lexing<'a> {
                 }
                 _ => {
                     let c = self.get_char();
-                    self.errors.push(format!("[line {}] Error: Unexpected character: {}", self.lines+1, c));
-                    eprintln!("[line {}] Error: Unexpected character: {}", self.lines+1, c);
+                    self.errors.push(format!(
+                        "[line {}] Error: Unexpected character: {}",
+                        self.lines + 1,
+                        c
+                    ));
+                    eprintln!(
+                        "[line {}] Error: Unexpected character: {}",
+                        self.lines + 1,
+                        c
+                    );
                 }
             }
         }
@@ -352,16 +370,12 @@ impl<'a> Parse<'a> {
     fn new(mut lex: Lexing<'a>) -> Parse {
         let current = lex.next();
         let next = lex.next();
-        Parse {
-            lex,
-            current,
-            next,
-        }
+        Parse { lex, current, next }
     }
 
-    fn parse(&mut self)  {
+    fn parse(&mut self) {
         loop {
-            match self.current {
+            match self.current.clone() {
                 Token::EOF => {
                     break;
                 }
@@ -377,6 +391,16 @@ impl<'a> Parse<'a> {
                     self.next();
                     println!("nil");
                 }
+                Token::Number(n) => {
+                    self.next();
+                    let num = n.parse::<f64>().unwrap();
+                    let inum = (num as i64) as f64;
+                    if num > inum {
+                        println!("{}", num)
+                    } else {
+                        println!("{}.0", num)
+                    }
+                }
                 _ => {
                     self.next();
                 }
@@ -384,7 +408,7 @@ impl<'a> Parse<'a> {
         }
     }
 
-    fn next(&mut self) ->Token {
+    fn next(&mut self) -> Token {
         let next = self.lex.next();
         self.current = self.next.clone();
         self.next = next;
@@ -399,7 +423,6 @@ impl<'a> Parse<'a> {
     //     self.next.clone()
     // }
 }
-
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -447,12 +470,12 @@ fn main() {
                     match token {
                         Token::EOF => {
                             println!("{}", token);
-                            break
-                        },
-                        Token::Comment(_) => {},
+                            break;
+                        }
+                        Token::Comment(_) => {}
                         _ => {
                             println!("{}", token);
-                        },
+                        }
                     }
                 }
                 let mut return_code = 0;
