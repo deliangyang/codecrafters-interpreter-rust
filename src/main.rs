@@ -18,6 +18,13 @@ enum Token {
 
     LeftBrace, // {
     RightBrace, // }
+    // ,, ., -, +, ; and *. /
+    Star, // *
+    Slash, // /
+    Minus, // -
+    Plus, // +
+    Comma, // ,
+    Dot, // .
 }
 
 static KEYWORDS: [&str; 1] = ["var"];
@@ -39,6 +46,12 @@ impl Display for  Token {
             Token::RightParen => write!(f, "RIGHT_PAREN ) null"),
             Token::LeftBrace => write!(f, "LEFT_BRACE {{ null"),
             Token::RightBrace => write!(f, "RIGHT_BRACE }} null"),
+            Token::Star => write!(f, "STAR * null"),
+            Token::Slash => write!(f, "SLASH / null"),
+            Token::Minus => write!(f, "MINUS - null"),
+            Token::Plus => write!(f, "PLUS + null"),
+            Token::Comma => write!(f, "COMMA , null"),
+            Token::Dot => write!(f, "DOT . null"),
         }
     }
 }
@@ -113,6 +126,30 @@ impl<'a> Lexing<'a> {
                 '}' => {
                     self.get_char();
                     return Token::RightBrace;
+                }
+                '*' => {
+                    self.get_char();
+                    return Token::Star;
+                }
+                '/' => {
+                    self.get_char();
+                    return Token::Slash;
+                }
+                '-' => {
+                    self.get_char();
+                    return Token::Minus;
+                }
+                '+' => {
+                    self.get_char();
+                    return Token::Plus;
+                }
+                ',' => {
+                    self.get_char();
+                    return Token::Comma;
+                }
+                '.' => {
+                    self.get_char();
+                    return Token::Dot;
                 }
                 _ => {
                     let mut s = String::new();
