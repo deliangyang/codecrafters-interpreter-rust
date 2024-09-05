@@ -15,6 +15,9 @@ enum Token {
 
     LeftParen, // (
     RightParen, // )
+
+    LeftBrace, // {
+    RightBrace, // }
 }
 
 static KEYWORDS: [&str; 1] = ["var"];
@@ -34,6 +37,8 @@ impl Display for  Token {
             Token::EOF => write!(f, "EOF  null"),
             Token::LeftParen => write!(f, "LEFT_PAREN ( null"),
             Token::RightParen => write!(f, "RIGHT_PAREN ) null"),
+            Token::LeftBrace => write!(f, "LEFT_BRACE {{ null"),
+            Token::RightBrace => write!(f, "RIGHT_BRACE }} null"),
         }
     }
 }
@@ -100,6 +105,14 @@ impl<'a> Lexing<'a> {
                 ')' => {
                     self.get_char();
                     return Token::RightParen;
+                }
+                '{' => {
+                    self.get_char();
+                    return Token::LeftBrace;
+                }
+                '}' => {
+                    self.get_char();
+                    return Token::RightBrace;
                 }
                 _ => {
                     let mut s = String::new();
