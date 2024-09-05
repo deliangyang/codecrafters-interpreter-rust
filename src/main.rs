@@ -28,6 +28,8 @@ enum Token {
     Dot, // .
 
     EqualEqual, // ==
+    Bang, // !
+    BangEqual, // !=
 }
 
 static KEYWORDS: [&str; 1] = ["var"];
@@ -56,6 +58,8 @@ impl Display for  Token {
             Token::Comma => write!(f, "COMMA , null"),
             Token::Dot => write!(f, "DOT . null"),
             Token::EqualEqual => write!(f, "EQUAL_EQUAL == null"),
+            Token::Bang => write!(f, "BANG ! null"),
+            Token::BangEqual => write!(f, "BANG_EQUAL != null"),
         }
     }
 }
@@ -115,6 +119,14 @@ impl<'a> Lexing<'a> {
                 ';' => {
                     self.get_char();
                     return Token::SEMICOLON;
+                }
+                '!' => {
+                    self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::BangEqual;
+                    }
+                    return Token::Bang;
                 }
                 '"' => {
                     let mut s = String::new();
