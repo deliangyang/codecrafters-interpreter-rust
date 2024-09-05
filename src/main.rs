@@ -30,6 +30,12 @@ enum Token {
     EqualEqual, // ==
     Bang, // !
     BangEqual, // !=
+
+    Less, // <
+    LessEqual, // <=
+
+    Greater, // >
+    GreaterEqual, // >=
 }
 
 static KEYWORDS: [&str; 1] = ["var"];
@@ -60,6 +66,10 @@ impl Display for  Token {
             Token::EqualEqual => write!(f, "EQUAL_EQUAL == null"),
             Token::Bang => write!(f, "BANG ! null"),
             Token::BangEqual => write!(f, "BANG_EQUAL != null"),
+            Token::Less => write!(f, "LESS < null"),
+            Token::LessEqual => write!(f, "LESS_EQUAL <= null"),
+            Token::Greater => write!(f, "GREATER > null"),
+            Token::GreaterEqual => write!(f, "GREATER_EQUAL >= null"),
         }
     }
 }
@@ -127,6 +137,22 @@ impl<'a> Lexing<'a> {
                         return Token::BangEqual;
                     }
                     return Token::Bang;
+                }
+                '<' => {
+                    self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::LessEqual;
+                    }
+                    return Token::Less;
+                }
+                '>' => {
+                    self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::GreaterEqual;
+                    }
+                    return Token::Greater;
                 }
                 '"' => {
                     let mut s = String::new();
