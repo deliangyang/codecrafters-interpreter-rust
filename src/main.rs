@@ -391,6 +391,10 @@ impl<'a> Parse<'a> {
                     self.next();
                     println!("nil");
                 }
+                Token::STRING(s) => {
+                    self.next();
+                    println!("{}", s);
+                }
                 Token::Number(n) => {
                     self.next();
                     let num = n.parse::<f64>().unwrap();
