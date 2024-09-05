@@ -435,8 +435,50 @@ impl Expr for UnaryExpr {
             Token::Minus => {
                 format!("(- {})", self.right.literal())
             }
+            Token::Star => {
+                format!("(* {})", self.right.literal())
+            }
+            Token::Slash => {
+                format!("(/ {})", self.right.literal())
+            }
+            Token::Plus => {
+                format!("(+ {})", self.right.literal())
+            }
             _ => {
                 format!("({} {})", self.operator, self.right.literal())
+            }
+        }
+    }
+}
+
+struct ArithmeticExpr {
+    left: Box<dyn Expr>,
+    operator: Token,
+    right: Box<dyn Expr>,
+}
+
+impl Expr for ArithmeticExpr {
+    fn literal(&self) -> String {
+        match self.operator {
+            Token::Star => {
+                format!("(* {} {})", self.left.literal(), self.right.literal())
+            }
+            Token::Plus => {
+                format!("(+ {} {})", self.left.literal(), self.right.literal())
+            }
+            Token::Slash => {
+                format!("(/ {} {})", self.left.literal(), self.right.literal())
+            }
+            Token::Minus => {
+                format!("(- {} {})", self.left.literal(), self.right.literal())
+            }
+            _ => {
+                format!(
+                    "({} {} {})",
+                    self.operator,
+                    self.left.literal(),
+                    self.right.literal()
+                )
             }
         }
     }
@@ -516,9 +558,32 @@ impl<'a> Parse<'a> {
                 self.next();
                 return Some(Box::new(group));
             }
+            Token::Star | Token::Slash => {
+                self.next();
+                let unary = UnaryExpr {
+                    operator: self.prev.clone(),
+                    right: self.next_expr().unwrap(),
+                };
+                return Some(Box::new(unary));
+            }
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 self.next();
+                if self.current == Token::Star
+                    || self.current == Token::Slash
+                {
+                    let tok = self.current.clone();
+                    let unary = self.next_expr().unwrap();
+
+                    // covert unary to UnaryExpr
+                    let arith = ArithmeticExpr {
+                        left: Box::new(NumberLiteral { value: num }),
+                        operator: tok,
+                        right: unary,
+                    };
+
+                    return Some(Box::new(arith));
+                }
                 return Some(Box::new(NumberLiteral { value: num }));
             }
             _ => {
