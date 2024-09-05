@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::fmt::Display;
 use std::fs;
@@ -5,9 +6,24 @@ use std::io::{self, Write};
 use std::process::exit;
 use std::str::Chars;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Token {
     VAR,
+    AND,
+    CLASS,
+    ELSE,
+    FALSE,
+    FOR,
+    FUN,
+    IF,
+    NIL,
+    OR,
+    PRINT,
+    RETURN,
+    SUPER,
+    THIS,
+    TRUE,
+    WHILE,
     IDENTIFIER(String),
     EQUAL,
     STRING(String),
@@ -41,16 +57,25 @@ enum Token {
     Comment(String), // //
 }
 
-static KEYWORDS: [&str; 1] = ["var"];
-
-fn is_keyword(s: &str) -> bool {
-    KEYWORDS.contains(&s)
-}
-
 impl Display for  Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Token::VAR => write!(f, "VAR var null"),
+            Token::AND => write!(f, "AND and null"),
+            Token::CLASS => write!(f, "CLASS class null"),
+            Token::ELSE => write!(f, "ELSE else null"),
+            Token::FALSE => write!(f, "FALSE false null"),
+            Token::FOR => write!(f, "FOR for null"),
+            Token::FUN => write!(f, "FUN fun null"),
+            Token::IF => write!(f, "IF if null"),
+            Token::NIL => write!(f, "NIL nil null"),
+            Token::OR => write!(f, "OR or null"),
+            Token::PRINT => write!(f, "PRINT print null"),
+            Token::RETURN => write!(f, "RETURN return null"),
+            Token::SUPER => write!(f, "SUPER super null"),
+            Token::THIS => write!(f, "THIS this null"),
+            Token::TRUE => write!(f, "TRUE true null"),
+            Token::WHILE => write!(f, "WHILE while null"),
             Token::IDENTIFIER(s) => write!(f, "IDENTIFIER {} null", s),
             Token::EQUAL => write!(f, "EQUAL = null"),
             Token::STRING(s) => write!(f, "STRING \"{}\" {}", s, s),
@@ -93,6 +118,7 @@ struct Lexing<'a> {
     l: usize,
     lines: usize,
     errors: Vec<String>,
+    keywords: HashMap<&'static str, Token>,
 }
 
 impl<'a> Lexing<'a> {
@@ -105,7 +131,29 @@ impl<'a> Lexing<'a> {
             l,
             lines: 0,
             errors: Vec::new(),
+            keywords: HashMap::from([
+                ("var", Token::VAR),
+                ("and", Token::AND),
+                ("class", Token::CLASS),
+                ("else", Token::ELSE),
+                ("false", Token::FALSE),
+                ("for", Token::FOR),
+                ("fun", Token::FUN),
+                ("if", Token::IF),
+                ("nil", Token::NIL),
+                ("or", Token::OR),
+                ("print", Token::PRINT),
+                ("return", Token::RETURN),
+                ("super", Token::SUPER),
+                ("this", Token::THIS),
+                ("true", Token::TRUE),
+                ("while", Token::WHILE),
+            ]),
         }
+    }
+
+    fn is_keyword(&self, var: &str) ->bool {
+        self.keywords.contains_key(var)
     }
 
     fn get_char(&mut self) ->char {
@@ -266,8 +314,14 @@ impl<'a> Lexing<'a> {
                             break;
                         }
                     }
-                    if is_keyword(&s) {
-                        return Token::VAR;
+                    if self.is_keyword(&s) {
+                        match self.keywords.get(s.to_lowercase().as_str()) {
+                            Some(t) => return t.clone(),
+                            None => {
+                                self.errors.push(format!("[line {}] Error: Unknown keyword: {}", self.lines+1, s));
+                                eprintln!("[line {}] Error: Unknown keyword: {}", self.lines+1, s);
+                            }
+                        }
                     } else {
                         return Token::IDENTIFIER(s);
                     }
