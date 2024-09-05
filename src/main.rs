@@ -360,68 +360,177 @@ impl<'a> Lexing<'a> {
     }
 }
 
+trait Expr {
+    fn literal(&self) -> String;
+}
+
+struct StringLiteral {
+    value: String,
+}
+
+impl Expr for StringLiteral {
+    fn literal(&self) -> String {
+        format!("{}", self.value)
+    }
+}
+
+struct NumberLiteral {
+    value: f64,
+}
+
+impl Expr for NumberLiteral {
+    fn literal(&self) -> String {
+        let inum = (self.value as i64) as f64;
+        if self.value > inum {
+            format!("{}", self.value)
+        } else {
+            format!("{}.0", self.value)
+        }
+    }
+}
+
+struct NilLiteral {}
+
+impl Expr for NilLiteral {
+    fn literal(&self) -> String {
+        "nil".to_string()
+    }
+}
+
+struct BoolExpr {
+    value: bool,
+}
+
+impl Expr for BoolExpr {
+    fn literal(&self) -> String {
+        format!("{}", self.value)
+    }
+}
+
+struct GroupingExpr {
+    exprs: Vec<Box<dyn Expr>>,
+}
+
+impl Expr for GroupingExpr {
+    fn literal(&self) -> String {
+        let mut ss = String::new();
+        for e in self.exprs.iter() {
+            ss.push_str(&e.literal());
+        }
+        format!("(group {})", ss)
+    }
+}
+
+struct UnaryExpr {
+    operator: Token,
+    right: Box<dyn Expr>,
+}
+
+impl Expr for UnaryExpr {
+    fn literal(&self) -> String {
+        match self.operator {
+            Token::Bang => {
+                format!("(! {})", self.right.literal())
+            }
+            Token::Minus => {
+                format!("(- {})", self.right.literal())
+            }
+            _ => {
+                format!("({} {})", self.operator, self.right.literal())
+            }
+        }
+    }
+}
+
 struct Parse<'a> {
     lex: Lexing<'a>,
     current: Token,
     next: Token,
+    prev: Token,
 }
 
 impl<'a> Parse<'a> {
     fn new(mut lex: Lexing<'a>) -> Parse {
+        let prev = Token::EOF;
         let current = lex.next();
         let next = lex.next();
-        Parse { lex, current, next }
+        Parse {
+            lex,
+            current,
+            next,
+            prev,
+        }
     }
 
     fn parse(&mut self) {
-        loop {
-            match self.current.clone() {
-                Token::EOF => {
-                    break;
+        let expr = self.next_expr();
+        if let Some(e) = expr {
+            println!("{}", e.literal());
+        }
+    }
+
+    fn next_expr(&mut self) -> Option<Box<dyn Expr>> {
+        match self.current.clone() {
+            Token::EOF => {
+                return None;
+            }
+            Token::TRUE => {
+                self.next();
+                return Some(Box::new(BoolExpr { value: true }));
+            }
+            Token::FALSE => {
+                self.next();
+                return Some(Box::new(BoolExpr { value: false }));
+            }
+            Token::NIL => {
+                self.next();
+                return Some(Box::new(NilLiteral {}));
+            }
+            Token::STRING(s) => {
+                self.next();
+                return Some(Box::new(StringLiteral { value: s }));
+            }
+            Token::Bang => {
+                self.next();
+                let unary = UnaryExpr {
+                    operator: self.prev.clone(),
+                    right: self.next_expr().unwrap(),
+                };
+                return Some(Box::new(unary));
+            }
+            Token::Minus => {
+                self.next();
+                let unary = UnaryExpr {
+                    operator: self.prev.clone(),
+                    right: self.next_expr().unwrap(),
+                };
+                return Some(Box::new(unary));
+            }
+            Token::LeftParen => {
+                let mut group = GroupingExpr { exprs: Vec::new() };
+                self.next();
+
+                while self.current != Token::RightParen {
+                    group.exprs.push(self.next_expr().unwrap());
                 }
-                Token::TRUE => {
-                    self.next();
-                    print!("true");
-                }
-                Token::FALSE => {
-                    self.next();
-                    print!("false");
-                }
-                Token::NIL => {
-                    self.next();
-                    print!("nil");
-                }
-                Token::STRING(s) => {
-                    self.next();
-                    print!("{}", s);
-                }
-                Token::LeftParen => {
-                    self.next();
-                    print!("(group ");
-                }
-                Token::RightParen => {
-                    self.next();
-                    print!(")");
-                }
-                Token::Number(n) => {
-                    self.next();
-                    let num = n.parse::<f64>().unwrap();
-                    let inum = (num as i64) as f64;
-                    if num > inum {
-                        print!("{}", num)
-                    } else {
-                        print!("{}.0", num)
-                    }
-                }
-                _ => {
-                    self.next();
-                }
+                self.next();
+                return Some(Box::new(group));
+            }
+            Token::Number(n) => {
+                let num = n.parse::<f64>().unwrap();
+                self.next();
+                return Some(Box::new(NumberLiteral { value: num }));
+            }
+            _ => {
+                self.next();
             }
         }
+        None
     }
 
     fn next(&mut self) -> Token {
         let next = self.lex.next();
+        self.prev = self.current.clone();
         self.current = self.next.clone();
         self.next = next;
         self.current.clone()
