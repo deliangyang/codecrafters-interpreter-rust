@@ -2,6 +2,7 @@ use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::io::{self, Write};
+use std::process::exit;
 use std::str::Chars;
 
 #[derive(Debug)]
@@ -60,6 +61,8 @@ struct Lexing<'a> {
     input: Chars<'a>,
     position: usize,
     l: usize,
+    lines: usize,
+    exit: i32,
 }
 
 impl<'a> Lexing<'a> {
@@ -70,6 +73,8 @@ impl<'a> Lexing<'a> {
             input,
             position: 0,
             l,
+            lines: 0,
+            exit: 0,
         }
     }
 
@@ -88,6 +93,9 @@ impl<'a> Lexing<'a> {
             match c {
                 ' ' | '\n' | '\t' => {
                     self.get_char();
+                    if c == '\n' {
+                        self.lines += 1;
+                    }
                     continue;
                 }
                 '=' => {
@@ -151,7 +159,7 @@ impl<'a> Lexing<'a> {
                     self.get_char();
                     return Token::Dot;
                 }
-                _ => {
+                'Z'..'a' => {
                     let mut s = String::new();
                     while self.l > self.position {
                         let c = self.peek();
@@ -166,6 +174,11 @@ impl<'a> Lexing<'a> {
                     } else {
                         return Token::IDENTIFIER(s);
                     }
+                }
+                _ => {
+                    let c = self.get_char();
+                    eprintln!("[line {}] Error: Unexpected character: {}", self.lines+1, c);
+                    self.exit = 65;
                 }
             }
         }
@@ -208,6 +221,7 @@ fn main() {
                         },
                     }
                 }
+                exit(lex.exit)
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
             }
