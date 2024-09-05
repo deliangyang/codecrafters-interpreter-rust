@@ -121,6 +121,7 @@ struct Lexing<'a> {
     keywords: HashMap<&'static str, Token>,
 }
 
+
 impl<'a> Lexing<'a> {
     fn new(input: &str) -> Lexing {
         let l = input.chars().count();
@@ -177,6 +178,10 @@ impl<'a> Lexing<'a> {
             return self.input.clone().nth(n-1).unwrap();
         }
         return '\0';
+    }
+
+    fn has_errors(&self) -> bool {
+        self.errors.len() > 0
     }
 
     fn next(&mut self) -> Token {
@@ -337,6 +342,65 @@ impl<'a> Lexing<'a> {
     }
 }
 
+struct Parse<'a> {
+    lex: Lexing<'a>,
+    current: Token,
+    next: Token,
+}
+
+impl<'a> Parse<'a> {
+    fn new(mut lex: Lexing<'a>) -> Parse {
+        let current = lex.next();
+        let next = lex.next();
+        Parse {
+            lex,
+            current,
+            next,
+        }
+    }
+
+    fn parse(&mut self)  {
+        loop {
+            match self.current {
+                Token::EOF => {
+                    break;
+                }
+                Token::TRUE => {
+                    self.next();
+                    println!("true");
+                }
+                Token::FALSE => {
+                    self.next();
+                    println!("false");
+                }
+                Token::NIL => {
+                    self.next();
+                    println!("nil");
+                }
+                _ => {
+                    self.next();
+                }
+            }
+        }
+    }
+
+    fn next(&mut self) ->Token {
+        let next = self.lex.next();
+        self.current = self.next.clone();
+        self.next = next;
+        self.current.clone()
+    }
+
+    fn has_errors(&self) -> bool {
+        self.lex.has_errors()
+    }
+
+    // fn peek(&self) -> Token {
+    //     self.next.clone()
+    // }
+}
+
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -348,6 +412,24 @@ fn main() {
     let filename = &args[2];
 
     match command.as_str() {
+        "parse" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
+                String::new()
+            });
+
+            // Uncomment this block to pass the first stage
+            if !file_contents.is_empty() {
+                let lex = Lexing::new(&file_contents);
+                let mut parse = Parse::new(lex);
+                parse.parse();
+                if parse.has_errors() {
+                    exit(65);
+                }
+            } else {
+                println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
+            }
+        }
         "tokenize" => {
             // You can use print statements as follows for debugging, they'll be visible when running tests.
             // writeln!(io::stderr(), "Logs from your program will appear here!").unwrap();
