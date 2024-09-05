@@ -12,6 +12,9 @@ enum Token {
     STRING(String),
     SEMICOLON,  // ;
     EOF,        // null
+
+    LeftParen, // (
+    RightParen, // )
 }
 
 static KEYWORDS: [&str; 1] = ["var"];
@@ -29,6 +32,8 @@ impl Display for  Token {
             Token::STRING(s) => write!(f, "STRING \"{}\" {}", s, s),
             Token::SEMICOLON => write!(f, "SEMICOLON ; null"),
             Token::EOF => write!(f, "EOF  null"),
+            Token::LeftParen => write!(f, "LEFT_PAREN ( null"),
+            Token::RightParen => write!(f, "RIGHT_PAREN ) null"),
         }
     }
 }
@@ -51,6 +56,7 @@ impl<'a> Lexing<'a> {
     }
 
     fn get_char(&mut self) ->char {
+        self.position += 1;
         self.input.nth(0).unwrap()
     }
 
@@ -64,32 +70,36 @@ impl<'a> Lexing<'a> {
             match c {
                 ' ' | '\n' | '\t' => {
                     self.get_char();
-                    self.position += 1;
                     continue;
                 }
                 '=' => {
                     self.get_char();
-                    self.position += 1;
                     return Token::EQUAL;
                 }
                 ';' => {
-                    self.position += 1;
                     self.get_char();
                     return Token::SEMICOLON;
                 }
                 '"' => {
                     let mut s = String::new();
+                    self.get_char();
                     while self.l > self.position {
                         let c = self.peek();
                         if c == '"' {
                             self.get_char();
-                            self.position += 1;
                             return Token::STRING(s);
                         }
                         s.push(self.get_char());
-                        self.position += 1;
                     }
                     panic!("unterminated string");
+                }
+                '(' => {
+                    self.get_char();
+                    return Token::LeftParen;
+                }
+                ')' => {
+                    self.get_char();
+                    return Token::RightParen;
                 }
                 _ => {
                     let mut s = String::new();
@@ -97,7 +107,6 @@ impl<'a> Lexing<'a> {
                         let c = self.peek();
                         if c.is_alphabetic() {
                             s.push(self.get_char());
-                            self.position += 1;
                         } else {
                             break;
                         }
