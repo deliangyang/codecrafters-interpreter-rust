@@ -1,6 +1,118 @@
 use std::env;
+use std::fmt::Display;
 use std::fs;
 use std::io::{self, Write};
+use std::str::Chars;
+
+#[derive(Debug)]
+enum Token {
+    VAR,
+    IDENTIFIER(String),
+    EQUAL,
+    STRING(String),
+    SEMICOLON,  // ;
+    EOF,        // null
+}
+
+static KEYWORDS: [&str; 1] = ["var"];
+
+fn is_keyword(s: &str) -> bool {
+    KEYWORDS.contains(&s)
+}
+
+impl Display for  Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::VAR => write!(f, "VAR var null"),
+            Token::IDENTIFIER(s) => write!(f, "IDENTIFIER {} null", s),
+            Token::EQUAL => write!(f, "EQUAL = null"),
+            Token::STRING(s) => write!(f, "STRING \"{}\" {}", s, s),
+            Token::SEMICOLON => write!(f, "SEMICOLON ; null"),
+            Token::EOF => write!(f, "EOF  null"),
+        }
+    }
+}
+
+struct Lexing<'a> {
+    input: Chars<'a>,
+    position: usize,
+    l: usize,
+}
+
+impl<'a> Lexing<'a> {
+    fn new(input: &str) -> Lexing {
+        let l = input.len();
+        let input = input.chars();
+        Lexing {
+            input,
+            position: 0,
+            l,
+        }
+    }
+
+    fn get_char(&mut self) ->char {
+        self.input.nth(0).unwrap()
+    }
+
+    fn peek(&mut self) -> char {
+        self.input.clone().nth(0).unwrap()
+    }
+
+    fn next(&mut self) -> Token {
+        while self.l > self.position  {
+            let c = self.peek();
+            match c {
+                ' ' | '\n' | '\t' => {
+                    self.get_char();
+                    self.position += 1;
+                    continue;
+                }
+                '=' => {
+                    self.get_char();
+                    self.position += 1;
+                    return Token::EQUAL;
+                }
+                ';' => {
+                    self.position += 1;
+                    self.get_char();
+                    return Token::SEMICOLON;
+                }
+                '"' => {
+                    let mut s = String::new();
+                    while self.l > self.position {
+                        let c = self.peek();
+                        if c == '"' {
+                            self.get_char();
+                            self.position += 1;
+                            return Token::STRING(s);
+                        }
+                        s.push(self.get_char());
+                        self.position += 1;
+                    }
+                    panic!("unterminated string");
+                }
+                _ => {
+                    let mut s = String::new();
+                    while self.l > self.position {
+                        let c = self.peek();
+                        if c.is_alphabetic() {
+                            s.push(self.get_char());
+                            self.position += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    if is_keyword(&s) {
+                        return Token::VAR;
+                    } else {
+                        return Token::IDENTIFIER(s);
+                    }
+                }
+            }
+        }
+        return Token::EOF;
+    }
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -24,7 +136,19 @@ fn main() {
 
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
+                let mut lex = Lexing::new(&file_contents);
+                loop {
+                    let token = lex.next();
+                    match token {
+                        Token::EOF => {
+                            println!("EOF  null");
+                            break
+                        },
+                        _ => {
+                            println!("{}", token);
+                        },
+                    }
+                }
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
             }
