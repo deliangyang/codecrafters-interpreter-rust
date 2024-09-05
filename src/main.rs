@@ -11,6 +11,7 @@ enum Token {
     IDENTIFIER(String),
     EQUAL,
     STRING(String),
+    Number(String),
     SEMICOLON,  // ;
     EOF,        // null
 
@@ -73,6 +74,13 @@ impl Display for  Token {
             Token::Greater => write!(f, "GREATER > null"),
             Token::GreaterEqual => write!(f, "GREATER_EQUAL >= null"),
             Token::Comment(s) => write!(f, "COMMENT //{} null", s),
+            Token::Number(n) => {
+                if !n.contains(".") {
+                    write!(f, "NUMBER {} {}.0", n, n.parse::<f64>().unwrap())
+                } else {
+                    write!(f, "NUMBER {} {}", n, n.parse::<f64>().unwrap())
+                }
+            },
         }
     }
 }
@@ -110,6 +118,13 @@ impl<'a> Lexing<'a> {
     fn peek(&mut self) -> char {
         if self.l > self.position {
             return self.input.clone().nth(0).unwrap();
+        }
+        return '\0';
+    }
+
+    fn peek_n(&mut self, n: usize) -> char {
+        if self.l > self.position + n {
+            return self.input.clone().nth(n-1).unwrap();
         }
         return '\0';
     }
@@ -171,6 +186,20 @@ impl<'a> Lexing<'a> {
                     }
                     self.errors.push(format!("[line {}] Error: Unterminated string.", self.lines+1));
                     eprintln!("[line {}] Error: Unterminated string.", self.lines+1);
+                }
+                '0'..='9' => {
+                    let mut s = String::new();
+                    while self.l > self.position {
+                        let c = self.peek();
+                        if c.is_numeric() {
+                            s.push(self.get_char());
+                        } else if c == '.' && self.peek_n(2).is_numeric() {
+                            s.push(self.get_char());
+                        } else {
+                            break;
+                        }
+                    }
+                    return Token::Number(s);
                 }
                 '(' => {
                     self.get_char();
