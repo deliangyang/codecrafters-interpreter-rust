@@ -22,22 +22,22 @@ impl<'a> Lexing<'a> {
             lines: 0,
             errors: Vec::new(),
             keywords: HashMap::from([
-                ("var", Token::VAR),
-                ("and", Token::AND),
-                ("class", Token::CLASS),
-                ("else", Token::ELSE),
-                ("false", Token::FALSE),
-                ("for", Token::FOR),
-                ("fun", Token::FUN),
-                ("if", Token::IF),
-                ("nil", Token::NIL),
-                ("or", Token::OR),
-                ("print", Token::PRINT),
-                ("return", Token::RETURN),
-                ("super", Token::SUPER),
-                ("this", Token::THIS),
-                ("true", Token::TRUE),
-                ("while", Token::WHILE),
+                ("var", Token::Var),
+                ("and", Token::And),
+                ("class", Token::Class),
+                ("else", Token::Else),
+                ("false", Token::False),
+                ("for", Token::For),
+                ("fun", Token::Fun),
+                ("if", Token::If),
+                ("nil", Token::Nil),
+                ("or", Token::Or),
+                ("print", Token::Print),
+                ("return", Token::Return),
+                ("super", Token::Super),
+                ("this", Token::This),
+                ("true", Token::True),
+                ("while", Token::While),
             ]),
         }
     }
@@ -87,11 +87,11 @@ impl<'a> Lexing<'a> {
                         self.get_char();
                         return Token::EqualEqual;
                     }
-                    return Token::EQUAL;
+                    return Token::Equal;
                 }
                 ';' => {
                     self.get_char();
-                    return Token::SEMICOLON;
+                    return Token::Semicolon;
                 }
                 '!' => {
                     self.get_char();
@@ -124,7 +124,7 @@ impl<'a> Lexing<'a> {
                         let c = self.peek();
                         if c == '"' {
                             self.get_char();
-                            return Token::STRING(s);
+                            return Token::String(s);
                         }
                         s.push(self.get_char());
                     }
@@ -228,7 +228,7 @@ impl<'a> Lexing<'a> {
                             }
                         }
                     } else {
-                        return Token::IDENTIFIER(s);
+                        return Token::Identifier(s);
                     }
                 }
                 _ => {
@@ -246,6 +246,33 @@ impl<'a> Lexing<'a> {
                 }
             }
         }
-        return Token::EOF;
+        return Token::Eof;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_lexing() {
+        use crate::lexer::Lexing;
+        use crate::token::Token;
+        let input = "var a = 10;";
+        let mut lex = Lexing::new(input);
+        let mut tokens = Vec::new();
+        loop {
+            let tok = lex.next();
+            tokens.push(tok.clone());
+            if tok == Token::Eof {
+                break;
+            }
+        }
+        assert_eq!(tokens, vec![
+            Token::Var,
+            Token::Identifier("a".to_string()),
+            Token::Equal,
+            Token::Number("10".to_string()),
+            Token::Semicolon,
+            Token::Eof,
+        ]);
     }
 }

@@ -1,4 +1,6 @@
-use crate::ast::{ExprType, Progam, Stmt};
+use std::process::exit;
+
+use crate::ast::{ExprType, Ident, Literal, Precedence, Progam, Stmt};
 use crate::lexer::Lexing;
 use crate::token::Token;
 
@@ -11,7 +13,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(mut lex: Lexing<'a>) -> Parser {
-        let prev = Token::EOF;
+        let prev = Token::Eof;
         let current = lex.next();
         let next = lex.next();
         Parser {
@@ -24,7 +26,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse(&mut self) -> Progam {
         let mut program: Progam = vec![];
-        while self.current != Token::EOF {
+        while self.current != Token::Eof {
             match self.parse_stmt() {
                 Some(stmt) => {
                     program.push(stmt);
@@ -40,29 +42,94 @@ impl<'a> Parser<'a> {
 
     fn parse_stmt(&mut self) -> Option<Stmt> {
         match self.current.clone() {
-            Token::EOF => {
+            Token::Eof => {
                 return None;
             }
-            _ => {
-                let expr = self.parse_expr(1).unwrap();
+            Token::Var => self.parse_var_stmt(),
+            _ => self.parse_expr_stmt(),
+        }
+    }
+
+    fn parse_expr_stmt(&mut self) -> Option<Stmt> {
+        match self.parse_expr(Precedence::Lowest) {
+            Some(expr) => {
+                if self.current != Token::Semicolon {
+                    self.next();
+                }
                 return Some(Stmt::Expr(expr));
+            }
+            None => {
+                return None;
             }
         }
     }
 
-    fn parse_expr(&mut self, _: usize) -> Option<ExprType> {
+    fn parse_var_stmt(&mut self) -> Option<Stmt> {
+        self.next();
+        let ident = match self.current.clone() {
+            Token::Identifier(s) => {
+                self.next();
+                Ident(s)
+            }
+            _ => {
+                eprintln!("Unexpected token: {:?}", self.current);
+                exit(0);
+            }
+        };
+        if self.current != Token::Equal {
+            eprintln!("Unexpected token: {:?}", self.current);
+            exit(0);
+        }
+        self.next();
+        let expr = self.parse_expr(Precedence::Lowest).unwrap();
+        if self.current != Token::Semicolon {
+            eprintln!("Unexpected token: {:?}", self.current);
+            exit(0);
+        }
+        self.next();
+        Some(Stmt::Var(ident, expr))
+    }
+
+    fn next_token_precedence(&self) -> Precedence {
+        self.token_precedence(self.next.clone())
+    }
+
+    fn current_token_precedence(&self) -> Precedence {
+        self.token_precedence(self.current.clone())
+    }
+
+    fn token_precedence(&self, token: Token) -> Precedence {
+        match token {
+            Token::Star | Token::Slash => Precedence::Star,
+            Token::Plus | Token::Minus => Precedence::Plus,
+            _ => Precedence::Lowest,
+        }
+    }
+
+    fn parse_expr(&mut self, precedence: Precedence) -> Option<ExprType> {
         // prefix
         let mut left = match self.current.clone() {
+            Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr().unwrap(),
+            Token::LeftParen => self.parse_grouped_expr().unwrap(),
             Token::Number(_) => self.parse_number_literal().unwrap(),
-            Token::Bang | Token::Star | Token::Slash => self.parse_prefix_expr().unwrap(),
             _ => {
+                self.next();
                 return None;
             }
         };
 
-        while self.current != Token::EOF {
+        // println!(
+        //     "left: {:?}, token: {:?}, precedence: {:?}, next: {:?}, next_precedence: {:?}",
+        //     left,
+        //     self.current,
+        //     precedence,
+        //     self.next,
+        //     self.current_token_precedence()
+        // );
+        // infix
+        while self.current != Token::Semicolon && precedence < self.current_token_precedence() {
             match self.current.clone() {
-                Token::Star | Token::Slash => {
+                Token::Star | Token::Slash | Token::Plus | Token::Minus => {
                     left = self.parse_infix_expr(left).unwrap();
                 }
                 _ => {
@@ -70,21 +137,34 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        println!("infix left: {:?}", left);
 
-        println!("left: {:?}", left);
         Some(left)
     }
 
-    fn parse_prefix_expr(&mut self) -> Option<ExprType> {
-        let _tok = self.current.clone();
+    fn parse_grouped_expr(&mut self) -> Option<ExprType> {
         self.next();
-        let right = self.parse_expr(1);
-        return match right {
-            Some(ExprType::NumberLiteral(n)) => Some(ExprType::NumberLiteral(n)),
-            Some(ExprType::UnaryExpr(_, _)) => right,
-            Some(ExprType::BinaryExpr(_, _, _)) => right,
-            _ => None,
-        };
+
+        let expr = self.parse_expr(Precedence::Lowest);
+        println!("grouped expr: {:?}", expr);
+        if self.next == Token::RightParen {
+            self.next();
+        } else {
+            return None;
+        }
+        match expr {
+            Some(expr) => Some(ExprType::GroupingExpr(Box::new(expr))),
+            None => {
+                return None;
+            }
+        }
+    }
+
+    fn parse_prefix_expr(&mut self) -> Option<ExprType> {
+        let op = self.current.clone();
+        self.next();
+        let right = self.parse_expr(Precedence::Lowest);
+        return Some(ExprType::PrefixExpr(op, Box::new(right.unwrap())));
     }
 
     fn parse_number_literal(&mut self) -> Option<ExprType> {
@@ -92,7 +172,7 @@ impl<'a> Parser<'a> {
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 self.next();
-                Some(ExprType::NumberLiteral(num))
+                Some(ExprType::Literal(Literal::Number(num)))
             }
             _ => {
                 panic!("Unexpected");
@@ -102,72 +182,13 @@ impl<'a> Parser<'a> {
 
     fn parse_infix_expr(&mut self, left: ExprType) -> Option<ExprType> {
         let op = self.current.clone();
+
         self.next();
+        let precedence = self.next_token_precedence();
 
-        return match self.parse_expr(0) {
-            Some(right) => match right {
-                _ => {
-                    Some(ExprType::BinaryExpr(Box::new(left), op, Box::new(right)))
-                },
-            },
-            None => Some(left),
-        }
+        let right = self.parse_expr(precedence).unwrap();
+        return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
     }
-
-    #[allow(dead_code)]
-    fn parse_literal_expr(&mut self) -> Option<ExprType> {
-        match self.current.clone() {
-            Token::EOF => {
-                return None;
-            }
-            Token::TRUE => {
-                self.next();
-                return Some(ExprType::BoolExpr(true));
-            }
-            Token::FALSE => {
-                self.next();
-                return Some(ExprType::BoolExpr(false));
-            }
-            Token::NIL => {
-                self.next();
-                return Some(ExprType::NilLiteral);
-            }
-            Token::STRING(s) => {
-                self.next();
-                return Some(ExprType::StringLiteral(s));
-            }
-            Token::Bang => {
-                self.next();
-                let unary =
-                    ExprType::UnaryExpr(self.prev.clone(), Box::new(self.parse_expr(1).unwrap()));
-                return Some(unary);
-            }
-            Token::Minus => {
-                self.next();
-                let unary =
-                    ExprType::UnaryExpr(self.prev.clone(), Box::new(self.parse_expr(1).unwrap()));
-                return Some(unary);
-            }
-            Token::LeftParen => {
-                let mut group = Vec::new();
-                self.next();
-
-                while self.current != Token::RightParen {
-                    group.push(Box::new(self.parse_expr(1).unwrap()));
-                }
-                self.next();
-                return Some(ExprType::GroupingExpr(group));
-            }
-            _ => {
-                panic!("Unexpected token: {:?}", self.current);
-            }
-        }
-    }
-
-    // fn parse_expression(&mut self) -> Option<Box<ExprType>> {
-    //     let expr = self.next_expr().unwrap();
-    //     Some(expr)
-    // }
 
     fn next(&mut self) -> Token {
         let next = self.lex.next();
@@ -176,10 +197,8 @@ impl<'a> Parser<'a> {
         self.next = next;
         let tok = self.current.clone();
         match tok {
-            Token::Comment(_) => {
-                self.next()
-            }
-            _ => tok
+            Token::Comment(_) => self.next(),
+            _ => tok,
         }
     }
 
@@ -190,4 +209,122 @@ impl<'a> Parser<'a> {
     // fn peek(&self) -> Token {
     //     self.next.clone()
     // }
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::ast::{ExprType, Ident, Literal, Stmt};
+    use crate::lexer::Lexing;
+    use crate::parser::Parser;
+    use crate::token::Token;
+
+    #[test]
+    fn test_var() {
+        let input = "var a = 10;".to_string();
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
+        assert_eq!(
+            program,
+            vec![Stmt::Var(
+                Ident(String::from("a")),
+                ExprType::Literal(Literal::Number(10.0))
+            ),]
+        );
+    }
+
+    #[test]
+    fn test_nagetive_number() {
+        let input = "var a = -10;".to_string();
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
+        assert_eq!(
+            program,
+            vec![Stmt::Var(
+                Ident(String::from("a")),
+                ExprType::PrefixExpr(
+                    Token::Minus,
+                    Box::new(ExprType::Literal(Literal::Number(10.0)))
+                )
+            ),]
+        );
+    }
+
+    #[test]
+    fn test_parser() {
+        let input = "1 + 2 * 3;".to_string();
+        let lex: Lexing<'_> = Lexing::new(&input);
+        println!("lex: {:?}", lex.errors);
+        let mut parse = Parser::new(lex);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
+        assert_eq!(
+            program,
+            vec![Stmt::Expr(ExprType::InfixExpr(
+                Box::new(ExprType::Literal(Literal::Number(1.0))),
+                Token::Plus,
+                Box::new(ExprType::InfixExpr(
+                    Box::new(ExprType::Literal(Literal::Number(2.0))),
+                    Token::Star,
+                    Box::new(ExprType::Literal(Literal::Number(3.0)))
+                ))
+            ))]
+        )
+    }
+
+    #[test]
+    fn test_grouped() {
+        let input = "(24 * -74 / (61 * 77))".to_string();
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        println!("{:?}", progam[0]);
+    }
+
+    #[test]
+    fn test_arithmetic_operators_1() {
+        let input = "16 * 38 / 58".to_string();
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::InfixExpr(
+                Box::new(ExprType::InfixExpr(
+                    Box::new(ExprType::Literal(Literal::Number(16.0))),
+                    Token::Star,
+                    Box::new(ExprType::Literal(Literal::Number(38.0))),
+                )),
+                Token::Slash,
+                Box::new(ExprType::Literal(Literal::Number(58.0)))
+            ))]
+        );
+    }
+
+    #[test]
+    fn test_arithmetic_operators_2() {
+        let input = "(11 * -77 / (98 * 67))".to_string();
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::InfixExpr(
+                Box::new(ExprType::InfixExpr(
+                    Box::new(ExprType::Literal(Literal::Number(16.0))),
+                    Token::Star,
+                    Box::new(ExprType::Literal(Literal::Number(38.0))),
+                )),
+                Token::Slash,
+                Box::new(ExprType::Literal(Literal::Number(58.0)))
+            ))]
+        );
+    }
 }

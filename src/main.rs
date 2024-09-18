@@ -53,7 +53,7 @@ fn main() {
                 loop {
                     let token = lex.next();
                     match token {
-                        Token::EOF => {
+                        Token::Eof => {
                             println!("{}", token);
                             break;
                         }
