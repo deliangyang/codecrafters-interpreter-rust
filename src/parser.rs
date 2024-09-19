@@ -79,13 +79,19 @@ impl<'a> Parser<'a> {
             }
         };
         if self.current != Token::Equal {
-            eprintln!("self.current != Token::Equal Unexpected token: {:?}", self.current);
+            eprintln!(
+                "self.current != Token::Equal Unexpected token: {:?}",
+                self.current
+            );
             exit(0);
         }
         self.next();
         let expr = self.parse_expr(Precedence::Lowest).unwrap();
         if self.current != Token::Semicolon {
-            eprintln!("self.current != Token::Semicolon Unexpected token: {:?}", self.current);
+            eprintln!(
+                "self.current != Token::Semicolon Unexpected token: {:?}",
+                self.current
+            );
             exit(0);
         }
         self.next();
@@ -109,7 +115,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self, precedence: Precedence) -> Option<ExprType> {
-        // println!("parse_expr: {:?}", self.current);
+        //println!("parse_expr: {:?} {:?}", self.current, precedence);
         // prefix
         let mut left = match self.current.clone() {
             Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr(),
@@ -142,27 +148,31 @@ impl<'a> Parser<'a> {
                 return None;
             }
         };
-        // println!("left: {:?} {:?} {:?}, token: {:?}", left, precedence, self.current_token_precedence(), self.current);
+        // println!(
+        //     "left: {:?} precedence:{:?} current_precedence:{:?}, token: {:?} < {:?}",
+        //     left,
+        //     precedence,
+        //     self.current_token_precedence(),
+        //     self.current,
+        //     precedence < self.current_token_precedence()
+        // );
         // infix
         while self.current != Token::Semicolon && precedence < self.current_token_precedence() {
             match self.current.clone() {
                 Token::Star | Token::Slash | Token::Plus | Token::Minus => {
                     left = self.parse_infix_expr(left.unwrap());
                 }
-                _ => return left
+                _ => return left,
             }
         }
-   
+
         left
     }
 
     fn parse_grouped_expr(&mut self) -> Option<ExprType> {
-
         self.next();
 
-        let preducence = self.current_token_precedence();
-
-        let expr = self.parse_expr(preducence);
+        let expr = self.parse_expr(Precedence::Lowest);
         if self.current == Token::RightParen {
             self.next();
         } else {
@@ -199,8 +209,8 @@ impl<'a> Parser<'a> {
     fn parse_infix_expr(&mut self, left: ExprType) -> Option<ExprType> {
         let op = self.current.clone();
         let precedence = self.current_token_precedence();
+        //println!("parse_infix_expr: {:?} {:?} {:?}", left, op, precedence);
         self.next();
-
         let right = self.parse_expr(precedence).unwrap();
         return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
     }
@@ -353,8 +363,14 @@ mod test {
         assert_eq!(
             progam,
             vec![
-               Stmt::Var(Ident(String::from("a")), ExprType::Literal(Literal::Number(10.0))),
-               Stmt::Var(Ident(String::from("b")), ExprType::Literal(Literal::Number(20.0))),
+                Stmt::Var(
+                    Ident(String::from("a")),
+                    ExprType::Literal(Literal::Number(10.0))
+                ),
+                Stmt::Var(
+                    Ident(String::from("b")),
+                    ExprType::Literal(Literal::Number(20.0))
+                ),
                 Stmt::Var(
                     Ident(String::from("c")),
                     ExprType::InfixExpr(
@@ -395,7 +411,9 @@ mod test {
         assert_eq!(progam.len(), 1);
         assert_eq!(
             progam,
-            vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(ExprType::Literal(Literal::String(String::from("foo"))))))]
+            vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(
+                ExprType::Literal(Literal::String(String::from("foo")))
+            )))]
         );
     }
 
@@ -408,7 +426,70 @@ mod test {
         assert_eq!(progam.len(), 1);
         assert_eq!(
             progam,
-            vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(ExprType::Literal(Literal::Nil))))]
+            vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(
+                ExprType::Literal(Literal::Nil)
+            )))]
+        );
+    }
+
+    #[test]
+    fn test_arithmetic_operators_3() {
+        let input = "52 + 80 - 94";
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::InfixExpr(
+                Box::new(ExprType::InfixExpr(
+                    Box::new(ExprType::Literal(Literal::Number(52.0))),
+                    Token::Plus,
+                    Box::new(ExprType::Literal(Literal::Number(80.0))),
+                )),
+                Token::Minus,
+                Box::new(ExprType::Literal(Literal::Number(94.0)))
+            ))]
+        );
+    }
+
+    #[test]
+    fn test_arithmetic_issue_2() {
+        let input = "(-43 + 95) * (68 * 80) / (55 + 75)";
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::InfixExpr(
+                Box::new(ExprType::InfixExpr(
+                    Box::new(ExprType::InfixExpr(
+                        Box::new(ExprType::PrefixExpr(
+                            Token::Minus,
+                            Box::new(ExprType::Literal(Literal::Number(43.0)))
+                        )),
+                        Token::Plus,
+                        Box::new(ExprType::Literal(Literal::Number(95.0))),
+                    )),
+                    Token::Star,
+                    Box::new(ExprType::InfixExpr(
+                        Box::new(ExprType::Literal(Literal::Number(68.0))),
+                        Token::Star,
+                        Box::new(ExprType::Literal(Literal::Number(80.0))),
+                    )),
+                )),
+                Token::Slash,
+                Box::new(ExprType::InfixExpr(
+                    Box::new(ExprType::InfixExpr(
+                        Box::new(ExprType::Literal(Literal::Number(55.0))),
+                        Token::Plus,
+                        Box::new(ExprType::Literal(Literal::Number(75.0))),
+                    )),
+                    Token::Plus,
+                    Box::new(ExprType::Literal(Literal::Number(75.0))),
+                )),
+            ))]
         );
     }
 }
