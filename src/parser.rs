@@ -31,7 +31,9 @@ impl<'a> Parser<'a> {
                 Some(stmt) => {
                     program.push(stmt);
                 }
-                None => {}
+                None => {
+                    println!("--------------> None");
+                }
             };
         }
         for stmt in &program {
@@ -77,26 +79,26 @@ impl<'a> Parser<'a> {
             }
         };
         if self.current != Token::Equal {
-            eprintln!("Unexpected token: {:?}", self.current);
+            eprintln!("self.current != Token::Equal Unexpected token: {:?}", self.current);
             exit(0);
         }
         self.next();
         let expr = self.parse_expr(Precedence::Lowest).unwrap();
         if self.current != Token::Semicolon {
-            eprintln!("Unexpected token: {:?}", self.current);
+            eprintln!("self.current != Token::Semicolon Unexpected token: {:?}", self.current);
             exit(0);
         }
         self.next();
         Some(Stmt::Var(ident, expr))
     }
 
-    fn next_token_precedence(&self) -> Precedence {
-        self.token_precedence(self.next.clone())
-    }
-
     fn current_token_precedence(&self) -> Precedence {
         self.token_precedence(self.current.clone())
     }
+
+    // fn next_token_precedence(&self) -> Precedence {
+    //     self.token_precedence(self.next.clone())
+    // }
 
     fn token_precedence(&self, token: Token) -> Precedence {
         match token {
@@ -107,47 +109,61 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self, precedence: Precedence) -> Option<ExprType> {
+        // println!("parse_expr: {:?}", self.current);
         // prefix
         let mut left = match self.current.clone() {
-            Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr().unwrap(),
-            Token::LeftParen => self.parse_grouped_expr().unwrap(),
-            Token::Number(_) => self.parse_number_literal().unwrap(),
+            Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr(),
+            Token::LeftParen => self.parse_grouped_expr(),
+            Token::Number(_) => self.parse_number_literal(),
+            Token::Identifier(_) => {
+                let ident = self.current.clone();
+                self.next();
+                Some(ExprType::Ident(Ident(ident.to_string())))
+            }
+            Token::True => {
+                self.next();
+                Some(ExprType::Literal(Literal::Bool(true)))
+            }
+            Token::False => {
+                self.next();
+                Some(ExprType::Literal(Literal::Bool(false)))
+            }
+            Token::String(s) => {
+                self.next();
+                Some(ExprType::Literal(Literal::String(s)))
+            }
+            Token::Nil => {
+                self.next();
+                Some(ExprType::Literal(Literal::Nil))
+            }
             _ => {
+                println!("------------------> Unexpected token: {:?}", self.current);
                 self.next();
                 return None;
             }
         };
-
-        // println!(
-        //     "left: {:?}, token: {:?}, precedence: {:?}, next: {:?}, next_precedence: {:?}",
-        //     left,
-        //     self.current,
-        //     precedence,
-        //     self.next,
-        //     self.current_token_precedence()
-        // );
+        // println!("left: {:?} {:?} {:?}, token: {:?}", left, precedence, self.current_token_precedence(), self.current);
         // infix
         while self.current != Token::Semicolon && precedence < self.current_token_precedence() {
             match self.current.clone() {
                 Token::Star | Token::Slash | Token::Plus | Token::Minus => {
-                    left = self.parse_infix_expr(left).unwrap();
+                    left = self.parse_infix_expr(left.unwrap());
                 }
-                _ => {
-                    break;
-                }
+                _ => return left
             }
         }
-        println!("infix left: {:?}", left);
-
-        Some(left)
+   
+        left
     }
 
     fn parse_grouped_expr(&mut self) -> Option<ExprType> {
+
         self.next();
 
-        let expr = self.parse_expr(Precedence::Lowest);
-        println!("grouped expr: {:?}", expr);
-        if self.next == Token::RightParen {
+        let preducence = self.current_token_precedence();
+
+        let expr = self.parse_expr(preducence);
+        if self.current == Token::RightParen {
             self.next();
         } else {
             return None;
@@ -163,7 +179,7 @@ impl<'a> Parser<'a> {
     fn parse_prefix_expr(&mut self) -> Option<ExprType> {
         let op = self.current.clone();
         self.next();
-        let right = self.parse_expr(Precedence::Lowest);
+        let right = self.parse_expr(Precedence::Prefix);
         return Some(ExprType::PrefixExpr(op, Box::new(right.unwrap())));
     }
 
@@ -182,9 +198,8 @@ impl<'a> Parser<'a> {
 
     fn parse_infix_expr(&mut self, left: ExprType) -> Option<ExprType> {
         let op = self.current.clone();
-
+        let precedence = self.current_token_precedence();
         self.next();
-        let precedence = self.next_token_precedence();
 
         let right = self.parse_expr(precedence).unwrap();
         return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
@@ -314,17 +329,86 @@ mod test {
         let mut parse = Parser::new(lex);
         let progam = parse.parse();
         assert_eq!(progam.len(), 1);
+        // assert_eq!(
+        //     progam,
+        //     vec![Stmt::Expr(ExprType::InfixExpr(
+        //         Box::new(ExprType::InfixExpr(
+        //             Box::new(ExprType::Literal(Literal::Number(11.0))),
+        //             Token::Star,
+        //             Box::new(ExprType::Literal(Literal::Number(38.0))),
+        //         )),
+        //         Token::Slash,
+        //         Box::new(ExprType::Literal(Literal::Number(58.0)))
+        //     ))]
+        // );
+    }
+
+    #[test]
+    fn test_double_minutes() {
+        let input = "var a = 10; var b = 20; var c = a - -b;".to_string();
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 3);
         assert_eq!(
             progam,
-            vec![Stmt::Expr(ExprType::InfixExpr(
-                Box::new(ExprType::InfixExpr(
-                    Box::new(ExprType::Literal(Literal::Number(16.0))),
-                    Token::Star,
-                    Box::new(ExprType::Literal(Literal::Number(38.0))),
-                )),
-                Token::Slash,
-                Box::new(ExprType::Literal(Literal::Number(58.0)))
+            vec![
+               Stmt::Var(Ident(String::from("a")), ExprType::Literal(Literal::Number(10.0))),
+               Stmt::Var(Ident(String::from("b")), ExprType::Literal(Literal::Number(20.0))),
+                Stmt::Var(
+                    Ident(String::from("c")),
+                    ExprType::InfixExpr(
+                        Box::new(ExprType::Ident(Ident(String::from("a")))),
+                        Token::Minus,
+                        Box::new(ExprType::PrefixExpr(
+                            Token::Minus,
+                            Box::new(ExprType::Ident(Ident(String::from("b"))))
+                        ))
+                    )
+                )
+            ]
+        );
+    }
+
+    #[test]
+    fn test_bang_true() {
+        let input = "!true";
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::PrefixExpr(
+                Token::Bang,
+                Box::new(ExprType::Literal(Literal::Bool(true)))
             ))]
+        );
+    }
+
+    #[test]
+    fn test_grouped_string() {
+        let input = "(\"foo\")";
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(ExprType::Literal(Literal::String(String::from("foo"))))))]
+        );
+    }
+
+    #[test]
+    fn test_grouped_nil() {
+        let input = "(nil)";
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(ExprType::Literal(Literal::Nil))))]
         );
     }
 }

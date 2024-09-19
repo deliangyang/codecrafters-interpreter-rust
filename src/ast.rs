@@ -60,7 +60,7 @@ impl Display for ExprType {
                 Token::Plus => write!(f, "(+ {} {})", l, r),
                 _ => write!(f, "({} {} {})", l, t, r),
             },
-            ExprType::Ident(_) => write!(f, "{:?}", self),
+            ExprType::Ident(v) => write!(f, "{}", v.0),
             ExprType::Literal(literal) => {
                 match literal {
                     Literal::Number(n) => {
@@ -76,8 +76,8 @@ impl Display for ExprType {
                     Literal::Nil => write!(f, "nil"),
                 }
             },
-            ExprType::GroupingExpr(_) => {
-                write!(f, "(group {})", self)
+            ExprType::GroupingExpr(expr) => {
+                write!(f, "(group {})", expr)
             },
             ExprType::PrefixExpr(token, expr) => {
                 let op = match token {
