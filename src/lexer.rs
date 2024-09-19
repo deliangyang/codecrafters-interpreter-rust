@@ -1,6 +1,6 @@
+use crate::token::Token;
 use std::collections::HashMap;
 use std::str::Chars;
-use crate::token::Token;
 
 pub struct Lexing<'a> {
     input: Chars<'a>,
@@ -248,6 +248,28 @@ impl<'a> Lexing<'a> {
         }
         return Token::Eof;
     }
+
+    pub fn log_error(&mut self, token: Token, message: &str) {
+        let token = match token {
+            Token::Identifier(s) => s,
+            Token::String(s) => s,
+            Token::Number(s) => s,
+            Token::RightParen => ")".to_string(),
+            _ => "".to_string(),
+        };
+        self.errors.push(format!(
+            "[line {}] Error at '{}': {}.",
+            self.lines + 1,
+            token,
+            message
+        ));
+        eprintln!(
+            "[line {}] Error at '{}': {}.",
+            self.lines + 1,
+            token,
+            message
+        );
+    }
 }
 
 #[cfg(test)]
@@ -266,13 +288,16 @@ mod test {
                 break;
             }
         }
-        assert_eq!(tokens, vec![
-            Token::Var,
-            Token::Identifier("a".to_string()),
-            Token::Equal,
-            Token::Number("10".to_string()),
-            Token::Semicolon,
-            Token::Eof,
-        ]);
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Var,
+                Token::Identifier("a".to_string()),
+                Token::Equal,
+                Token::Number("10".to_string()),
+                Token::Semicolon,
+                Token::Eof,
+            ]
+        );
     }
 }

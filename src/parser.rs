@@ -32,7 +32,7 @@ impl<'a> Parser<'a> {
                     program.push(stmt);
                 }
                 None => {
-                    println!("--------------> None");
+                    break;
                 }
             };
         }
@@ -74,8 +74,7 @@ impl<'a> Parser<'a> {
                 Ident(s)
             }
             _ => {
-                eprintln!("Unexpected token: {:?}", self.current);
-                exit(0);
+                return None;
             }
         };
         if self.current != Token::Equal {
@@ -147,8 +146,8 @@ impl<'a> Parser<'a> {
                 Some(ExprType::Literal(Literal::Nil))
             }
             _ => {
-                println!("------------------> Unexpected token: {:?}", self.current);
-                self.next();
+                self.lex
+                    .log_error(self.current.clone(), "Expect expression");
                 return None;
             }
         };
@@ -189,11 +188,15 @@ impl<'a> Parser<'a> {
         if self.current == Token::RightParen {
             self.next();
         } else {
+            self.lex
+                .log_error(self.current.clone(), "Expect expression");
             return None;
         }
         match expr {
             Some(expr) => Some(ExprType::GroupingExpr(Box::new(expr))),
             None => {
+                self.lex
+                    .log_error(self.current.clone(), "Expect expression");
                 return None;
             }
         }
@@ -203,7 +206,12 @@ impl<'a> Parser<'a> {
         let op = self.current.clone();
         self.next();
         let right = self.parse_expr(Precedence::Prefix);
-        return Some(ExprType::PrefixExpr(op, Box::new(right.unwrap())));
+        if let Some(right) = right {
+            return Some(ExprType::PrefixExpr(op, Box::new(right)));
+        }
+        self.lex
+            .log_error(self.current.clone(), "Expect expression");
+        return None;
     }
 
     fn parse_number_literal(&mut self) -> Option<ExprType> {
@@ -224,8 +232,12 @@ impl<'a> Parser<'a> {
         let precedence = self.current_token_precedence();
         //println!("parse_infix_expr: {:?} {:?} {:?}", left, op, precedence);
         self.next();
-        let right = self.parse_expr(precedence).unwrap();
-        return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
+        if let Some(right) = self.parse_expr(precedence) {
+            return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
+        }
+        self.lex
+            .log_error(self.current.clone(), "Expect expression");
+        return None;
     }
 
     fn next(&mut self) -> Token {
@@ -525,5 +537,17 @@ mod test {
                 Box::new(ExprType::Literal(Literal::Number(115.0)))
             ))]
         );
+    }
+
+    #[test]
+    fn test_output_error() {
+        let input = "(foo";
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        for error in parse.lex.errors {
+            eprintln!("{}", error);
+        }
+        assert_eq!(progam.len(), 0);
     }
 }
