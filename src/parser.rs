@@ -108,6 +108,10 @@ impl<'a> Parser<'a> {
 
     fn token_precedence(&self, token: Token) -> Precedence {
         match token {
+            Token::EqualEqual | Token::BangEqual | Token::Equal => Precedence::Equals,
+            Token::Less | Token::LessEqual | Token::Greater | Token::GreaterEqual => {
+                Precedence::LessGreater
+            }
             Token::Star | Token::Slash => Precedence::Star,
             Token::Plus | Token::Minus => Precedence::Plus,
             _ => Precedence::Lowest,
@@ -159,7 +163,14 @@ impl<'a> Parser<'a> {
         // infix
         while self.current != Token::Semicolon && precedence < self.current_token_precedence() {
             match self.current.clone() {
-                Token::Star | Token::Slash | Token::Plus | Token::Minus => {
+                Token::Star
+                | Token::Slash
+                | Token::Plus
+                | Token::Minus
+                | Token::Less
+                | Token::LessEqual
+                | Token::Greater
+                | Token::GreaterEqual => {
                     left = self.parse_infix_expr(left.unwrap());
                 }
                 _ => return left,
@@ -489,6 +500,27 @@ mod test {
                     Token::Plus,
                     Box::new(ExprType::Literal(Literal::Number(75.0))),
                 )),
+            ))]
+        );
+    }
+
+    #[test]
+    fn test_comparison_operator() {
+        let input = "83 < 99 < 115";
+        let lex: Lexing<'_> = Lexing::new(&input);
+        let mut parse = Parser::new(lex);
+        let progam = parse.parse();
+        assert_eq!(progam.len(), 1);
+        assert_eq!(
+            progam,
+            vec![Stmt::Expr(ExprType::InfixExpr(
+                Box::new(ExprType::InfixExpr(
+                    Box::new(ExprType::Literal(Literal::Number(83.0))),
+                    Token::Less,
+                    Box::new(ExprType::Literal(Literal::Number(99.0))),
+                )),
+                Token::Less,
+                Box::new(ExprType::Literal(Literal::Number(115.0)))
             ))]
         );
     }
