@@ -167,6 +167,8 @@ impl<'a> Parser<'a> {
                 | Token::Slash
                 | Token::Plus
                 | Token::Minus
+                | Token::EqualEqual
+                | Token::BangEqual
                 | Token::Less
                 | Token::LessEqual
                 | Token::Greater
