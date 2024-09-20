@@ -74,12 +74,9 @@ impl<'a> Parser<'a> {
                 return None;
             }
         };
-        if self.current != Token::Equal {
-            eprintln!(
-                "self.current != Token::Equal Unexpected token: {:?}",
-                self.current
-            );
-            exit(0);
+        if self.current == Token::Semicolon {
+            self.next();
+            return Some(Stmt::Var(ident, ExprType::Literal(Literal::Nil)));
         }
         self.next();
         let expr = self.parse_expr(Precedence::Lowest).unwrap();
