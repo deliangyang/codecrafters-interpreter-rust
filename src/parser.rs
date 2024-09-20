@@ -52,7 +52,7 @@ impl<'a> Parser<'a> {
     fn parse_expr_stmt(&mut self) -> Option<Stmt> {
         match self.parse_expr(Precedence::Lowest) {
             Some(expr) => {
-                if self.current != Token::Semicolon {
+                if self.current == Token::Semicolon {
                     self.next();
                 }
                 return Some(Stmt::Expr(expr));
@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self, precedence: Precedence) -> Option<ExprType> {
-        //println!("parse_expr: {:?} {:?}", self.current, precedence);
+        // println!("parse_expr: {:?} {:?}", self.current, precedence);
         // prefix
         let mut left = match self.current.clone() {
             Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr(),
@@ -153,7 +153,6 @@ impl<'a> Parser<'a> {
                         .log_error(self.current.clone(), "Expect semicolon");
                     return None;
                 }
-                self.next();
                 return Some(ExprType::PrintExpr(Box::new(expr.unwrap())));
             }
             _ => {

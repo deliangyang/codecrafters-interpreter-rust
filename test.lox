@@ -1,1 +1,3 @@
-print true;
+print "world" + "baz" + "bar";
+print 27 - 26;
+print "bar" == "quz";
