@@ -1,3 +1,5 @@
+use std::process::exit;
+
 use crate::{ast::{ExprType, Literal, Progam, Stmt}, token::Token, objects::Object};
 
 pub struct Evaluator {
@@ -42,7 +44,7 @@ impl Evaluator {
                         if let Object::Number(expr) = expr {
                             return Some(Object::Number(-expr));
                         }
-                        return None;
+                        exit(70);
                     }
                     Token::Bang => {
                         if let Object::Boolean(expr) = expr {
@@ -77,6 +79,7 @@ impl Evaluator {
                                 return Some(Object::Number(left - right));
                             }
                         }
+                       
                         return None;
                     }
                     Token::Star => {
