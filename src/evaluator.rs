@@ -103,76 +103,92 @@ impl Evaluator {
                 let right = self.evaluate_expr(right);
                 match op {
                     Token::EqualEqual => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left == right));
                             }
+                        }else if let Object::Boolean(left) = left.clone().unwrap() {
+                            if let Object::Boolean(right) = right.unwrap() {
+                                return Some(Object::Boolean(left == right));
+                            }
+                        } else if let Object::String(left) = left.clone().unwrap() {
+                            if let Object::String(right) = right.unwrap() {
+                                return Some(Object::Boolean(left == right));
+                            }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::BangEqual => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left != right));
                             }
+                        } else if let Object::Boolean(left) = left.clone().unwrap() {
+                            if let Object::Boolean(right) = right.unwrap() {
+                                return Some(Object::Boolean(left != right));
+                            }
+                        } else if let Object::String(left) = left.clone().unwrap() {
+                            if let Object::String(right) = right.unwrap() {
+                                return Some(Object::Boolean(left != right));
+                            }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::Less => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left < right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::LessEqual => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left <= right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::Greater => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left > right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::GreaterEqual => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left >= right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::Star => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Number(left * right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::Slash => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Number(left / right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::Minus => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Number(left - right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     Token::Plus => {
                         if let Object::Number(left) = left.clone().unwrap() {
@@ -184,7 +200,7 @@ impl Evaluator {
                                 return Some(Object::String(left + &right));
                             }
                         }
-                        return None;
+                        return Some(Object::Boolean(false));
                     }
                     _ => unimplemented!(),
                 }
