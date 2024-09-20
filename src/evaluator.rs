@@ -150,6 +150,22 @@ impl Evaluator {
                         }
                         return None;
                     }
+                    Token::Star => {
+                        if let Object::Number(left) = left.unwrap() {
+                            if let Object::Number(right) = right.unwrap() {
+                                return Some(Object::Number(left * right));
+                            }
+                        }
+                        return None;
+                    }
+                    Token::Slash => {
+                        if let Object::Number(left) = left.unwrap() {
+                            if let Object::Number(right) = right.unwrap() {
+                                return Some(Object::Number(left / right));
+                            }
+                        }
+                        return None;
+                    }
                     _ => unimplemented!(),
                 }
             }
