@@ -35,6 +35,24 @@ impl Evaluator {
                 Literal::String(s) => Some(Object::String(s.clone())),
             },
             ExprType::GroupingExpr(expr) => self.evaluate_expr(expr),
+            ExprType::PrefixExpr(op, expr) => {
+                let expr = self.evaluate_expr(expr).unwrap();
+                match op {
+                    Token::Minus => {
+                        if let Object::Number(expr) = expr {
+                            return Some(Object::Number(-expr));
+                        }
+                        return None;
+                    }
+                    Token::Bang => {
+                        if let Object::Boolean(expr) = expr {
+                            return Some(Object::Boolean(!expr));
+                        }
+                        return None;
+                    }
+                    _ => unimplemented!(),
+                }
+            }
             ExprType::BinaryExpr(left, op, right) => {
                 let left = self.evaluate_expr(left).unwrap();
                 let right = self.evaluate_expr(right).unwrap();
