@@ -175,9 +175,13 @@ impl Evaluator {
                         return None;
                     }
                     Token::Plus => {
-                        if let Object::Number(left) = left.unwrap() {
+                        if let Object::Number(left) = left.clone().unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Number(left + right));
+                            }
+                        } else if let Object::String(left) = left.unwrap() {
+                            if let Object::String(right) = right.unwrap() {
+                                return Some(Object::String(left + &right));
                             }
                         }
                         return None;
