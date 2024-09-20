@@ -49,6 +49,10 @@ impl Evaluator {
                             return Some(Object::Boolean(!expr));
                         } else if let Object::Nil = expr {
                             return Some(Object::Boolean(true));
+                        } else if let Object::Number(expr) = expr {
+                            return Some(Object::Boolean(expr == 0.0));
+                        } else if let Object::String(expr) = expr {
+                            return Some(Object::Boolean(expr.is_empty()));
                         }
                         return None;
                     }
