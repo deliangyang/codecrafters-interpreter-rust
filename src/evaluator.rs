@@ -143,7 +143,7 @@ impl Evaluator {
                                 return Some(Object::Boolean(left < right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     Token::LessEqual => {
                         if let Object::Number(left) = left.clone().unwrap() {
@@ -151,7 +151,7 @@ impl Evaluator {
                                 return Some(Object::Boolean(left <= right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     Token::Greater => {
                         if let Object::Number(left) = left.clone().unwrap() {
@@ -159,7 +159,7 @@ impl Evaluator {
                                 return Some(Object::Boolean(left > right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     Token::GreaterEqual => {
                         if let Object::Number(left) = left.clone().unwrap() {
@@ -167,7 +167,7 @@ impl Evaluator {
                                 return Some(Object::Boolean(left >= right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     Token::Star => {
                         if let Object::Number(left) = left.clone().unwrap() {
