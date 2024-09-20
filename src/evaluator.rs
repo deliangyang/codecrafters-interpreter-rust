@@ -1,4 +1,4 @@
-use crate::{ast::{ExprType, Literal, Progam}, objects::Object};
+use crate::{ast::{ExprType, Literal, Progam, Stmt}, objects::Object};
 
 pub struct Evaluator {
     pub ast: Progam,
@@ -15,26 +15,26 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_stmt(&self, stmt: &crate::ast::Stmt) {
+    fn evaluate_stmt(&self, stmt: &Stmt) {
         match stmt {
-            crate::ast::Stmt::Var(ident, expr) => {
+            Stmt::Var(ident, expr) => {
                 println!("var {} = {}", ident.0, self.evaluate_expr(expr).unwrap());
             }
-            crate::ast::Stmt::Expr(expr) => {
+            Stmt::Expr(expr) => {
                 println!("{}", self.evaluate_expr(expr).unwrap());
             }
         }
     }
 
-    fn evaluate_expr(&self, expr: &crate::ast::ExprType) -> Option<Object> {
+    fn evaluate_expr(&self, expr: &ExprType) -> Option<Object> {
         match expr {
-            crate::ast::ExprType::Literal(lit) => match lit {
-                crate::ast::Literal::Number(n) => Some(Object::Number(*n)),
+            ExprType::Literal(lit) => match lit {
+                Literal::Number(n) => Some(Object::Number(*n)),
                 Literal::Bool(v) => Some(Object::Boolean(*v)),
                 Literal::Nil => Some(Object::Nil),
-                _ => unimplemented!("Literal not implemented"),
+                Literal::String(s) => Some(Object::String(s.clone())),
             },
-            crate::ast::ExprType::BinaryExpr(left, op, right) => {
+            ExprType::BinaryExpr(left, op, right) => {
                 let left = self.evaluate_expr(left).unwrap();
                 let right = self.evaluate_expr(right).unwrap();
                 match op {
