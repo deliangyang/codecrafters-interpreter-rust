@@ -1,2 +1,1 @@
-"foo" + "bar";
-print "baz";
+"bar" != "baz"

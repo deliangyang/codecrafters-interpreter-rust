@@ -3,15 +3,17 @@ use std::{collections::HashMap, process::exit};
 use crate::{ast::{ExprType, Literal, Progam, Stmt}, builtins, objects::Object, token::Token};
 
 pub struct Evaluator {
+    output: bool,
     pub ast: Progam,
     builtins: HashMap<String, Object>,
 }
 
 impl Evaluator {
-    pub fn new(ast: Progam) -> Self {
+    pub fn new(ast: Progam, output: bool) -> Self {
         Self { 
             ast: ast,
             builtins: builtins::new_builtins(),
+            output: output,
          }
     }
 
@@ -27,7 +29,10 @@ impl Evaluator {
                 println!("var {} = {}", ident.0, self.evaluate_expr(expr).unwrap());
             }
             Stmt::Expr(expr) => {
-                self.evaluate_expr(expr).unwrap();
+                let object = self.evaluate_expr(expr).unwrap();
+                if self.output {
+                    println!("{}", object);
+                }
             }
         }
     }
