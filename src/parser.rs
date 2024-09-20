@@ -145,7 +145,9 @@ impl<'a> Parser<'a> {
             Token::Print => {
                 self.next();
                 if self.current == Token::Semicolon {
-                    return Some(ExprType::PrintExpr(Box::new(ExprType::Literal(Literal::Nil))));
+                    self.lex
+                        .log_error(self.current.clone(), "Expect semicolon");
+                    return None;
                 }
                 let expr = self.parse_expr(Precedence::Lowest);
                 if self.current != Token::Semicolon {
