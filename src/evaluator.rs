@@ -175,7 +175,7 @@ impl Evaluator {
                                 return Some(Object::Number(left * right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     Token::Slash => {
                         if let Object::Number(left) = left.clone().unwrap() {
@@ -183,7 +183,7 @@ impl Evaluator {
                                 return Some(Object::Number(left / right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     Token::Minus => {
                         if let Object::Number(left) = left.clone().unwrap() {
@@ -191,7 +191,7 @@ impl Evaluator {
                                 return Some(Object::Number(left - right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     Token::Plus => {
                         if let Object::Number(left) = left.clone().unwrap() {
@@ -203,7 +203,7 @@ impl Evaluator {
                                 return Some(Object::String(left + &right));
                             }
                         }
-                        return Some(Object::Boolean(false));
+                        exit(70);
                     }
                     _ => unimplemented!(),
                 }
