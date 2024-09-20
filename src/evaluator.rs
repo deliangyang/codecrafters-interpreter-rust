@@ -166,6 +166,22 @@ impl Evaluator {
                         }
                         return None;
                     }
+                    Token::Minus => {
+                        if let Object::Number(left) = left.unwrap() {
+                            if let Object::Number(right) = right.unwrap() {
+                                return Some(Object::Number(left - right));
+                            }
+                        }
+                        return None;
+                    }
+                    Token::Plus => {
+                        if let Object::Number(left) = left.unwrap() {
+                            if let Object::Number(right) = right.unwrap() {
+                                return Some(Object::Number(left + right));
+                            }
+                        }
+                        return None;
+                    }
                     _ => unimplemented!(),
                 }
             }
