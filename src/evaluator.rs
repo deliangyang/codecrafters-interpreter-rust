@@ -27,7 +27,7 @@ impl Evaluator {
                 println!("var {} = {}", ident.0, self.evaluate_expr(expr).unwrap());
             }
             Stmt::Expr(expr) => {
-                println!("{}", self.evaluate_expr(expr).unwrap());
+                self.evaluate_expr(expr).unwrap();
             }
         }
     }
@@ -220,8 +220,8 @@ impl Evaluator {
             }
             ExprType::PrintExpr(expr) => {
                 let expr = self.evaluate_expr(expr).unwrap();
-                // println!("{}", expr);
-                return Some(expr);
+                println!("{}", expr);
+                return Some(Object::Nil);
             }
             _ => {
                 println!("{:?}", expr);
