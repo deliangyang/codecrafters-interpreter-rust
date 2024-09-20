@@ -142,6 +142,20 @@ impl<'a> Parser<'a> {
                 self.next();
                 Some(ExprType::Literal(Literal::Nil))
             }
+            Token::Print => {
+                self.next();
+                if self.current == Token::Semicolon {
+                    return Some(ExprType::PrintExpr(Box::new(ExprType::Literal(Literal::Nil))));
+                }
+                let expr = self.parse_expr(Precedence::Lowest);
+                if self.current != Token::Semicolon {
+                    self.lex
+                        .log_error(self.current.clone(), "Expect semicolon");
+                    return None;
+                }
+                self.next();
+                return Some(ExprType::PrintExpr(Box::new(expr.unwrap())));
+            }
             _ => {
                 self.lex
                     .log_error(self.current.clone(), "Expect expression");

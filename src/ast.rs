@@ -40,6 +40,7 @@ pub enum ExprType {
     BinaryExpr(Box<ExprType>, Token, Box<ExprType>), // infix binary parse
     PrefixExpr(Token, Box<ExprType>),
     InfixExpr(Box<ExprType>, Token, Box<ExprType>),
+    PrintExpr(Box<ExprType>),
 }
 
 impl Display for ExprType {
@@ -102,6 +103,9 @@ impl Display for ExprType {
                     _ => panic!("Invalid infix operator"),
                 };
                 write!(f, "({} {} {})", op, left, right)
+            },
+            ExprType::PrintExpr(expr) => {
+                write!(f, "(print {})", expr)
             },
         }
     }

@@ -1,14 +1,18 @@
-use std::process::exit;
+use std::{collections::HashMap, process::exit};
 
-use crate::{ast::{ExprType, Literal, Progam, Stmt}, token::Token, objects::Object};
+use crate::{ast::{ExprType, Literal, Progam, Stmt}, builtins, objects::Object, token::Token};
 
 pub struct Evaluator {
     pub ast: Progam,
+    builtins: HashMap<String, Object>,
 }
 
 impl Evaluator {
     pub fn new(ast: Progam) -> Self {
-        Self { ast }
+        Self { 
+            ast: ast,
+            builtins: builtins::new_builtins(),
+         }
     }
 
     pub fn evaluate(&self) {
@@ -36,6 +40,12 @@ impl Evaluator {
                 Literal::Nil => Some(Object::Nil),
                 Literal::String(s) => Some(Object::String(s.clone())),
             },
+            ExprType::Ident(v) => {
+                if let Some(builtin) = self.builtins.get(&v.0) {
+                    return Some(builtin.clone());
+                }
+                return None;
+            }
             ExprType::GroupingExpr(expr) => self.evaluate_expr(expr),
             ExprType::PrefixExpr(op, expr) => {
                 let expr = self.evaluate_expr(expr).unwrap();
@@ -207,6 +217,11 @@ impl Evaluator {
                     }
                     _ => unimplemented!(),
                 }
+            }
+            ExprType::PrintExpr(expr) => {
+                let expr = self.evaluate_expr(expr).unwrap();
+                // println!("{}", expr);
+                return Some(expr);
             }
             _ => {
                 println!("{:?}", expr);

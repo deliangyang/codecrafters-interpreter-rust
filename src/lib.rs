@@ -4,3 +4,4 @@ pub mod parser;
 pub mod ast;
 pub mod evaluator;
 pub mod objects;
+pub mod builtins;

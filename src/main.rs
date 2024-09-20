@@ -62,6 +62,26 @@ fn main() {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
             }
         }
+        "run" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
+                String::new()
+            });
+
+            // Uncomment this block to pass the first stage
+            if !file_contents.is_empty() {
+                let lex = Lexing::new(&file_contents);
+                let mut parse = Parser::new(lex);
+                let program = parse.parse();
+                if parse.has_errors() {
+                    exit(65);
+                }
+                let evaluator = Evaluator::new(program);
+                evaluator.evaluate();
+            } else {
+                println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
+            }
+        }
         "tokenize" => {
             // You can use print statements as follows for debugging, they'll be visible when running tests.
             // writeln!(io::stderr(), "Logs from your program will appear here!").unwrap();
