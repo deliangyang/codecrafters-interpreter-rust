@@ -55,7 +55,8 @@ impl Evaluator {
                 } else if let Some(env) = self.envs.get(&v.0) {
                     return Some(env.clone());
                 }
-                return None;
+                // println!("Undefined variable '{}'.", v.0);
+                exit(70);
             }
             ExprType::GroupingExpr(expr) => self.evaluate_expr(expr),
             ExprType::PrefixExpr(op, expr) => {
