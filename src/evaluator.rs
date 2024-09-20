@@ -47,6 +47,8 @@ impl Evaluator {
                     Token::Bang => {
                         if let Object::Boolean(expr) = expr {
                             return Some(Object::Boolean(!expr));
+                        } else if let Object::Nil = expr {
+                            return Some(Object::Boolean(true));
                         }
                         return None;
                     }
