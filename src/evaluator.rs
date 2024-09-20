@@ -6,6 +6,7 @@ pub struct Evaluator {
     output: bool,
     pub ast: Progam,
     builtins: HashMap<String, Object>,
+    envs: HashMap<String, Object>,
 }
 
 impl Evaluator {
@@ -14,19 +15,22 @@ impl Evaluator {
             ast: ast,
             builtins: builtins::new_builtins(),
             output: output,
+            envs: HashMap::new(),
          }
     }
 
-    pub fn evaluate(&self) {
-        for stmt in &self.ast {
-            self.evaluate_stmt(stmt);
+    pub fn evaluate(&mut self) {
+        for stmt in self.ast.clone() {
+            self.evaluate_stmt(&stmt);
         }
     }
 
-    fn evaluate_stmt(&self, stmt: &Stmt) {
+    fn evaluate_stmt(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::Var(ident, expr) => {
-                println!("var {} = {}", ident.0, self.evaluate_expr(expr).unwrap());
+                let name = ident.0.clone();
+                let object = self.evaluate_expr(expr).unwrap();
+                self.envs.insert(name, object);
             }
             Stmt::Expr(expr) => {
                 let object = self.evaluate_expr(expr).unwrap();
@@ -48,6 +52,8 @@ impl Evaluator {
             ExprType::Ident(v) => {
                 if let Some(builtin) = self.builtins.get(&v.0) {
                     return Some(builtin.clone());
+                } else if let Some(env) = self.envs.get(&v.0) {
+                    return Some(env.clone());
                 }
                 return None;
             }

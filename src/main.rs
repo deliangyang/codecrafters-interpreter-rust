@@ -56,7 +56,7 @@ fn main() {
                 if parse.has_errors() {
                     exit(65);
                 }
-                let evaluator = Evaluator::new(program, true);
+                let mut evaluator = Evaluator::new(program, true);
                 evaluator.evaluate();
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
@@ -76,7 +76,7 @@ fn main() {
                 if parse.has_errors() {
                     exit(65);
                 }
-                let evaluator = Evaluator::new(program, false);
+                let mut evaluator = Evaluator::new(program, false);
                 evaluator.evaluate();
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner

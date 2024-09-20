@@ -121,10 +121,9 @@ impl<'a> Parser<'a> {
             Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr(),
             Token::LeftParen => self.parse_grouped_expr(),
             Token::Number(_) => self.parse_number_literal(),
-            Token::Identifier(_) => {
-                let ident = self.current.clone();
+            Token::Identifier(ident) => {
                 self.next();
-                Some(ExprType::Ident(Ident(ident.to_string())))
+                Some(ExprType::Ident(Ident(ident)))
             }
             Token::True => {
                 self.next();
@@ -145,14 +144,12 @@ impl<'a> Parser<'a> {
             Token::Print => {
                 self.next();
                 if self.current == Token::Semicolon {
-                    self.lex
-                        .log_error(self.current.clone(), "Expect semicolon");
+                    self.lex.log_error(self.current.clone(), "Expect semicolon");
                     return None;
                 }
                 let expr = self.parse_expr(Precedence::Lowest);
                 if self.current != Token::Semicolon {
-                    self.lex
-                        .log_error(self.current.clone(), "Expect semicolon");
+                    self.lex.log_error(self.current.clone(), "Expect semicolon");
                     return None;
                 }
                 return Some(ExprType::PrintExpr(Box::new(expr.unwrap())));
