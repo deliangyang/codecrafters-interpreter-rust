@@ -1,4 +1,4 @@
-use crate::{ast::{ExprType, Literal, Progam, Stmt}, objects::Object};
+use crate::{ast::{ExprType, Literal, Progam, Stmt}, token::Token, objects::Object};
 
 pub struct Evaluator {
     pub ast: Progam,
@@ -34,11 +34,12 @@ impl Evaluator {
                 Literal::Nil => Some(Object::Nil),
                 Literal::String(s) => Some(Object::String(s.clone())),
             },
+            ExprType::GroupingExpr(expr) => self.evaluate_expr(expr),
             ExprType::BinaryExpr(left, op, right) => {
                 let left = self.evaluate_expr(left).unwrap();
                 let right = self.evaluate_expr(right).unwrap();
                 match op {
-                    crate::token::Token::Plus => {
+                    Token::Plus => {
                         if let Object::Number(left) = left {
                             if let Object::Number(right) = right {
                                 return Some(Object::Number(left + right));
@@ -46,7 +47,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::Minus => {
+                    Token::Minus => {
                         if let Object::Number(left) = left {
                             if let Object::Number(right) = right {
                                 return Some(Object::Number(left - right));
@@ -54,7 +55,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::Star => {
+                    Token::Star => {
                         if let Object::Number(left) = left {
                             if let Object::Number(right) = right {
                                 return Some(Object::Number(left * right));
@@ -62,7 +63,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::Slash => {
+                    Token::Slash => {
                         if let Object::Number(left) = left {
                             if let Object::Number(right) = right {
                                 return Some(Object::Number(left / right));
@@ -77,7 +78,7 @@ impl Evaluator {
                 let left = self.evaluate_expr(left);
                 let right = self.evaluate_expr(right);
                 match op {
-                    crate::token::Token::EqualEqual => {
+                    Token::EqualEqual => {
                         if let Object::Number(left) = left.unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left == right));
@@ -85,7 +86,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::BangEqual => {
+                    Token::BangEqual => {
                         if let Object::Number(left) = left.unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left != right));
@@ -93,7 +94,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::Less => {
+                    Token::Less => {
                         if let Object::Number(left) = left.unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left < right));
@@ -101,7 +102,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::LessEqual => {
+                    Token::LessEqual => {
                         if let Object::Number(left) = left.unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left <= right));
@@ -109,7 +110,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::Greater => {
+                    Token::Greater => {
                         if let Object::Number(left) = left.unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left > right));
@@ -117,7 +118,7 @@ impl Evaluator {
                         }
                         return None;
                     }
-                    crate::token::Token::GreaterEqual => {
+                    Token::GreaterEqual => {
                         if let Object::Number(left) = left.unwrap() {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left >= right));
