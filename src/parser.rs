@@ -36,9 +36,6 @@ impl<'a> Parser<'a> {
                 }
             };
         }
-        for stmt in &program {
-            println!("{}", stmt);
-        }
         program
     }
 

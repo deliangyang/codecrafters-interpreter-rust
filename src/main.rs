@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::process::exit;
 
+use codecrafters_interpreter::evaluator::Evaluator;
 use codecrafters_interpreter::token::Token;
 use codecrafters_interpreter::lexer::Lexing;
 use codecrafters_interpreter::parser::Parser;
@@ -30,10 +31,33 @@ fn main() {
             if !file_contents.is_empty() {
                 let lex = Lexing::new(&file_contents);
                 let mut parse = Parser::new(lex);
-                parse.parse();
+                let program = parse.parse();
                 if parse.has_errors() {
                     exit(65);
                 }
+                for stmt in &program {
+                    println!("{}", stmt);
+                }
+            } else {
+                println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
+            }
+        }
+        "evaluate" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
+                String::new()
+            });
+
+            // Uncomment this block to pass the first stage
+            if !file_contents.is_empty() {
+                let lex = Lexing::new(&file_contents);
+                let mut parse = Parser::new(lex);
+                let program = parse.parse();
+                if parse.has_errors() {
+                    exit(65);
+                }
+                let evaluator = Evaluator::new(program);
+                evaluator.evaluate();
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
             }
