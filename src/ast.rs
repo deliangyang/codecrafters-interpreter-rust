@@ -106,6 +106,7 @@ impl Display for ExprType {
                     Token::Minus => "-",
                     Token::Star => "*",
                     Token::Slash => "/",
+                    Token::Equal => "=",
                     _ => panic!("Invalid infix operator"),
                 };
                 write!(f, "({} {} {})", op, left, right)

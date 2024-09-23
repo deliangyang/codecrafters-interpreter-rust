@@ -41,7 +41,7 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_expr(&self, expr: &ExprType) -> Option<Object> {
+    fn evaluate_expr(&mut self, expr: &ExprType) -> Option<Object> {
         match expr {
             ExprType::Literal(lit) => match lit {
                 Literal::Number(n) => Some(Object::Number(*n)),
@@ -124,6 +124,20 @@ impl Evaluator {
                 }
             }
             ExprType::InfixExpr(left, op, right) => {
+                if let Token::Equal = op {
+                    match left.as_ref() {
+                        ExprType::Ident(ident) => {
+                            let name = ident.0.clone();
+                            // println!("{:?} {:?} {:?}", left, op, right);
+                            let object = self.evaluate_expr(right).unwrap();
+                            self.envs.insert(name, object.clone());
+                            // println!("{}", object);
+                            return Some(object);
+                        }
+                        _ => {},
+                    }
+                }
+
                 let left = self.evaluate_expr(left);
                 let right = self.evaluate_expr(right);
                 match op {
@@ -227,7 +241,10 @@ impl Evaluator {
                         }
                         exit(70);
                     }
-                    _ => unimplemented!(),
+                    _ => {
+                        println!("{:?} {:?} {:?}", left, op, right);
+                        unimplemented!()
+                    },
                 }
             }
             ExprType::PrintExpr(expr) => {

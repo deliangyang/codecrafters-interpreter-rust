@@ -1,3 +1,6 @@
-var baz = "foo";
-var bar;
-print bar;
+var world;
+var hello;
+
+world = hello = 66 + 81 * 20;
+print world;
+print hello;

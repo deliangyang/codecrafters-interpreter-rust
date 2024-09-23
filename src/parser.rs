@@ -173,6 +173,7 @@ impl<'a> Parser<'a> {
                 | Token::Plus
                 | Token::Minus
                 | Token::EqualEqual
+                | Token::Equal
                 | Token::BangEqual
                 | Token::Less
                 | Token::LessEqual
@@ -236,7 +237,7 @@ impl<'a> Parser<'a> {
     fn parse_infix_expr(&mut self, left: ExprType) -> Option<ExprType> {
         let op = self.current.clone();
         let precedence = self.current_token_precedence();
-        //println!("parse_infix_expr: {:?} {:?} {:?}", left, op, precedence);
+        // println!("parse_infix_expr: {:?} {:?} {:?}", left, op, precedence);
         self.next();
         if let Some(right) = self.parse_expr(precedence) {
             return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
