@@ -2,7 +2,7 @@ use std::process::exit;
 
 use crate::ast::{ExprType, Ident, Literal, Precedence, Progam, Stmt};
 use crate::lexer::Lexing;
-use crate::token::Token;
+use crate::token::{self, Token};
 
 pub struct Parser<'a> {
     lex: Lexing<'a>,
@@ -158,12 +158,12 @@ impl<'a> Parser<'a> {
             }
         };
         // println!(
-        //     "left: {:?} precedence:{:?} current_precedence:{:?}, token: {:?} < {:?}",
+        //     "left: {:?} precedence:{:?} current_precedence:{:?}, token: {:?}, < {:?}",
         //     left,
         //     precedence,
         //     self.current_token_precedence(),
         //     self.current,
-        //     precedence < self.current_token_precedence()
+        //     self.current != Token::Semicolon && precedence < self.current_token_precedence()
         // );
         // infix
         while self.current != Token::Semicolon && precedence < self.current_token_precedence() {
@@ -236,9 +236,14 @@ impl<'a> Parser<'a> {
 
     fn parse_infix_expr(&mut self, left: ExprType) -> Option<ExprType> {
         let op = self.current.clone();
-        let precedence = self.current_token_precedence();
-        // println!("parse_infix_expr: {:?} {:?} {:?}", left, op, precedence);
+        let mut precedence = self.current_token_precedence();
         self.next();
+        if op == token::Token::Equal {
+            precedence = self.current_token_precedence();
+        }
+
+        // println!("parse_infix_expr: {:?} {:?} {:?} {:?}", left, op, self.current, precedence);
+
         if let Some(right) = self.parse_expr(precedence) {
             return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
         }

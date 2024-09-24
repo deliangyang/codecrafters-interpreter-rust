@@ -1,6 +1,12 @@
 var world;
 var hello;
 
-world = hello = 66 + 81 * 20;
+var d;
+
+
+world = hello = d = 66 + 81 * 20;
 print world;
 print hello;
+print d;
+var baz = (8 * (87 + 87)) / 4 + 87;
+print baz;
