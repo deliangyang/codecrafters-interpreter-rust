@@ -1,6 +1,13 @@
 {
-    var foo = 25;
-    var hello = 25;
-    {
-        print foo + hello;
+  var foo = "outer foo";
+  var hello = "outer hello";
+  {
+    foo = "modified foo";
+    var hello = "inner hello";
+    print foo;
+    print hello;
+  }
+  print foo;
+  print hello;
 }
+print hello;

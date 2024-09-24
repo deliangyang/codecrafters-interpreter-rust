@@ -1,12 +1,12 @@
-use std::{collections::HashMap, process::exit};
+use std::{cell::RefCell, collections::HashMap, process::exit, rc::Rc};
 
-use crate::{ast::{ExprType, Literal, Progam, Stmt}, builtins, objects::Object, token::Token};
+use crate::{ast::{ExprType, Literal, Progam, Stmt}, builtins, envs::Env, objects::Object, token::Token};
 
 pub struct Evaluator {
     output: bool,
     pub ast: Progam,
     builtins: HashMap<String, Object>,
-    envs: HashMap<String, Object>,
+    envs: Rc<RefCell<Env>>,
 }
 
 impl Evaluator {
@@ -15,7 +15,7 @@ impl Evaluator {
             ast: ast,
             builtins: builtins::new_builtins(),
             output: output,
-            envs: HashMap::new(),
+            envs: Rc::new(RefCell::new(Env::new())),
          }
     }
 
@@ -30,7 +30,7 @@ impl Evaluator {
             Stmt::Var(ident, expr) => {
                 let name = ident.0.clone();
                 let object = self.evaluate_expr(expr).unwrap();
-                self.envs.insert(name, object);
+                self.envs.borrow_mut().set_store(name, &object);
             }
             Stmt::Expr(expr) => {
                 let object = self.evaluate_expr(expr).unwrap();
@@ -39,9 +39,13 @@ impl Evaluator {
                 }
             },
             Stmt::Block(stmts) => {
+                let current_env = Rc::clone(&self.envs);
+                let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                self.envs = Rc::new(RefCell::new(pre_envs));
                 for stmt in stmts {
                     self.evaluate_stmt(stmt);
                 }
+                self.envs = current_env;
             }
         }
     }
@@ -57,7 +61,7 @@ impl Evaluator {
             ExprType::Ident(v) => {
                 if let Some(builtin) = self.builtins.get(&v.0) {
                     return Some(builtin.clone());
-                } else if let Some(env) = self.envs.get(&v.0) {
+                } else if let Some(env) = self.envs.borrow_mut().get(v.0.clone()) {
                     return Some(env.clone());
                 }
                 // println!("Undefined variable '{}'.", v.0);
@@ -135,7 +139,7 @@ impl Evaluator {
                             let name = ident.0.clone();
                             // println!("{:?} {:?} {:?}", left, op, right);
                             let object = self.evaluate_expr(right).unwrap();
-                            self.envs.insert(name, object.clone());
+                            self.envs.borrow_mut().set(name, &object);
                             // println!("{}", object);
                             return Some(object);
                         }
