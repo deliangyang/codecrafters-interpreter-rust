@@ -1,12 +1,6 @@
-var world;
-var hello;
-
-var d;
-
-
-world = hello = d = 66 + 81 * 20;
-print world;
-print hello;
-print d;
-var baz = (8 * (87 + 87)) / 4 + 87;
-print baz;
+{
+    var foo = 25;
+    var hello = 25;
+    {
+        print foo + hello;
+}

@@ -14,6 +14,7 @@ impl Display for Ident {
 pub enum Stmt {
     Var(Ident, ExprType),
     Expr(ExprType),
+    Block(Vec<Stmt>),
 }
 
 impl Display for Stmt {
@@ -21,6 +22,12 @@ impl Display for Stmt {
         match self {
             Stmt::Expr(e) => write!(f, "{}", e),
             Stmt::Var(i, e) => write!(f, "var {} = {}", i.0, e),
+            Stmt::Block(stmts) => {
+                for stmt in stmts {
+                    writeln!(f, "{}", stmt)?;
+                }
+                Ok(())
+            }
         }
     }
 }

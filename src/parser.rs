@@ -45,6 +45,25 @@ impl<'a> Parser<'a> {
                 return None;
             }
             Token::Var => self.parse_var_stmt(),
+            Token::LeftBrace => {
+                self.next();
+                let mut stmts: Progam = vec![];
+                while self.current != Token::RightBrace {
+                    match self.parse_stmt() {
+                        Some(stmt) => {
+                            stmts.push(stmt);
+                        }
+                        None => {
+                            break;
+                        }
+                    }
+                }
+                if self.current != Token::RightBrace {
+                    exit(65);
+                }
+                self.next();
+                return Some(Stmt::Block(stmts));
+            }
             _ => self.parse_expr_stmt(),
         }
     }

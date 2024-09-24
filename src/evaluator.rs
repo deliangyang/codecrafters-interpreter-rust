@@ -37,6 +37,11 @@ impl Evaluator {
                 if self.output {
                     println!("{}", object);
                 }
+            },
+            Stmt::Block(stmts) => {
+                for stmt in stmts {
+                    self.evaluate_stmt(stmt);
+                }
             }
         }
     }
