@@ -7,6 +7,7 @@ pub enum Token {
     Var,
     And,
     Class,
+    New,
     Else,
     False,
     For,
@@ -103,6 +104,7 @@ impl Display for Token {
             Token::Case => write!(f, "CASE case null"),
             Token::Default => write!(f, "DEFAULT default null"),
             Token::Colon => write!(f, "COLON : null"),
+            Token::New => write!(f, "NEW new null"),
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;

@@ -367,6 +367,7 @@ impl<'a> Parser<'a> {
             Token::Star | Token::Slash => Precedence::Star,
             Token::Plus | Token::Minus => Precedence::Plus,
             Token::LeftParen => Precedence::Call,
+            Token::Dot => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -463,6 +464,7 @@ impl<'a> Parser<'a> {
                 self.next();
                 Some(ExprType::Literal(Literal::Nil))
             }
+            Token::New => self.parse_new_class(),
             Token::This => {
                 self.next();
                 if self.current != Token::Dot {
@@ -491,6 +493,7 @@ impl<'a> Parser<'a> {
                 return Some(ExprType::PrintExpr(Box::new(expr.unwrap())));
             }
             _ => {
+                println!("Unexpected token: {:?}", self.current);
                 self.lex
                     .log_error(self.current.clone(), "Expect expression");
                 return None;
@@ -523,11 +526,79 @@ impl<'a> Parser<'a> {
                 Token::LeftParen => {
                     left = self.parse_call(left.unwrap());
                 }
+                Token::Dot => {
+                    let class_name = match left {
+                        Some(ExprType::Ident(ident)) => ident,
+                        _ => {
+                            self.lex
+                                .log_error(self.current.clone(), "Expect identifier before '.'");
+                            return None;
+                        }
+                    };
+
+                    self.next();
+                    let ident = self.parse_ident().unwrap();
+                    self.next();
+                    if self.current != Token::LeftParen {
+                        self.lex
+                            .log_error(self.current.clone(), "Expect '(' after class call");
+                    }
+                    self.next();
+                    let args = self.parse_args_list();
+
+                    left = Some(ExprType::ClassCall{
+                        callee: class_name,
+                        method: ident,
+                        args: args.unwrap(),
+                    });
+                }
                 _ => return left,
             }
         }
 
         left
+    }
+
+    fn parse_args_list(&mut self) -> Option<Vec<ExprType>> {
+        let mut args = vec![];
+        while self.current != Token::RightParen {
+            let arg = self.parse_expr(Precedence::Lowest);
+            if let Some(arg) = arg {
+                args.push(arg);
+            }
+            if self.current == Token::Comma {
+                self.next();
+            }
+        }
+        self.next();
+        Some(args)
+    }
+
+    fn parse_new_class(&mut self) -> Option<ExprType> {
+        self.next();
+        let ident = self.parse_ident().unwrap();
+        self.next();
+        if self.current != Token::LeftParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect '(' after new");
+            return None;
+        }
+        self.next();
+        let mut args = vec![];
+        while self.current != Token::RightParen {
+            let arg = self.parse_expr(Precedence::Lowest);
+            if let Some(arg) = arg {
+                args.push(arg);
+            }
+            if self.current == Token::Comma {
+                self.next();
+            }
+        }
+        self.next();
+        Some(ExprType::ClassInit{
+            name: ident,
+            args: args,
+        })
     }
 
     fn parse_grouped_expr(&mut self) -> Option<ExprType> {

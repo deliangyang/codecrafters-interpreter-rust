@@ -32,6 +32,7 @@ pub enum Stmt {
         step: Box<Stmt>,
         block: BlockStmt,
     },
+    ClassInit(Ident, Vec<ExprType>),
 }
 
 impl Display for Stmt {
@@ -103,6 +104,16 @@ impl Display for Stmt {
                 }
                 write!(f, "}}")
             },
+            Stmt::ClassInit(name, args) => {
+                write!(f, "new {}(", name)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
+            },
         }
     }
 }
@@ -142,6 +153,15 @@ pub enum ExprType {
     },
     Call {
         callee: Box<ExprType>,
+        args: Vec<ExprType>,
+    },
+    ClassInit {
+        name: Ident,
+        args: Vec<ExprType>,
+    },
+    ClassCall {
+        callee: Ident,
+        method: Ident,
         args: Vec<ExprType>,
     },
 }
@@ -258,6 +278,26 @@ impl Display for ExprType {
                 write!(f, ")")
             },
             ExprType::ThisExpr(ident) => write!(f, "this.{}", ident.0),
+            ExprType::ClassInit { name, args } => {
+                write!(f, "new {}(", name)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
+            },
+            ExprType::ClassCall { callee, method, args } => {
+                write!(f, "{}.{}(", callee, method)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
+            },
         }
     }
 }
@@ -272,4 +312,5 @@ pub enum Precedence {
     Prefix,      // -X or !X
     Call,        // myFunction(x)
     Index,       // array[index]
+    Class,      // instance.property
 }

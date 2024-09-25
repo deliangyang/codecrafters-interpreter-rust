@@ -403,6 +403,41 @@ impl Evaluator {
 
                 return result;
             }
+            ExprType::ClassInit { name, args } => {
+                println!("{:?} {:?}", name, args);
+                let class_name = name.clone().to_string();
+                let class = self.envs.borrow_mut().get(class_name).unwrap();
+                if let Object::Class(_, properties) = class {
+                    let current_env = Rc::clone(&self.envs);
+                    let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                    self.envs = Rc::new(RefCell::new(pre_envs));
+                    let init_func = properties.iter().find(|x| {
+                        if let Stmt::Function(ident, _, _) = x {
+                            if ident.0 == "init" {
+                                return true;
+                            }
+                        }
+                        false
+                    }).unwrap();
+                    if let Stmt::Function(_, params, block) = init_func {
+                        for (i, arg) in args.iter().enumerate() {
+                            let arg: Object = self.evaluate_expr(&arg).unwrap();
+                            let ident = params[i].0.clone();
+                            self.envs.borrow_mut().set(ident, &arg);
+                        }
+                        for stmt in block {
+                            self.evaluate_stmt(stmt);
+                        }
+                    }
+                    self.envs = current_env;
+                }
+                
+                return Some(Object::Nil);
+            }
+            ExprType::ClassCall { callee, method, args } => {
+                println!("{:?} {:?} {:?}", callee, method, args);
+                return Some(Object::Nil);
+            }
             _ => {
                 println!("{:?}", expr);
                 return Some(Object::Nil);
