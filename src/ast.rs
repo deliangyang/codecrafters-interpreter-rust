@@ -12,9 +12,11 @@ impl Display for Ident {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
+    Blank,
     Var(Ident, ExprType),
     Expr(ExprType),
     Block(Vec<Stmt>),
+    Return(ExprType),
 }
 
 impl Display for Stmt {
@@ -27,7 +29,9 @@ impl Display for Stmt {
                     writeln!(f, "{}", stmt)?;
                 }
                 Ok(())
-            }
+            },
+            Stmt::Return(e) => write!(f, "return {}", e),
+            Stmt::Blank => write!(f, ""),
         }
     }
 }

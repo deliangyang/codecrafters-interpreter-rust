@@ -27,6 +27,7 @@ var test = fun () {
 var test2 = fun(a, b) {
     print a;
     print b;
+    return a+b;
 };
 
 test();
@@ -34,4 +35,4 @@ test();
 test2(1, 2);
 
 print "----------------------------------------";
-test2(a, 2);
+print test2(a, 2);

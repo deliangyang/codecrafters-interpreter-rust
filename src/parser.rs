@@ -44,6 +44,7 @@ impl<'a> Parser<'a> {
             Token::Eof => {
                 return None;
             }
+            Token::Return => self.parse_return(),
             Token::Var => self.parse_var_stmt(),
             Token::LeftBrace => {
                 self.next();
@@ -149,7 +150,7 @@ impl<'a> Parser<'a> {
         let then_branch: Progam = self.parse_block().unwrap();
         let mut elseif: Vec<(Box<ExprType>, Progam)> = vec![];
         let mut else_branch: Progam = vec![];
-        
+
         while self.current == Token::Else && self.next == Token::If {
             self.next();
             self.next();
@@ -169,7 +170,7 @@ impl<'a> Parser<'a> {
             let block = self.parse_block().unwrap();
             elseif.push((Box::new(condition.unwrap()), block));
         }
-        
+
         if self.current == Token::Else {
             self.next();
             else_branch = self.parse_block().unwrap();
@@ -227,7 +228,10 @@ impl<'a> Parser<'a> {
             }
         }
         self.next();
-        Some(ExprType::Call { callee: Box::new(left), args: args })
+        Some(ExprType::Call {
+            callee: Box::new(left),
+            args: args,
+        })
     }
 
     fn current_token_precedence(&self) -> Precedence {
@@ -249,6 +253,17 @@ impl<'a> Parser<'a> {
             Token::LeftParen => Precedence::Call,
             _ => Precedence::Lowest,
         }
+    }
+
+    fn parse_return(&mut self) -> Option<Stmt> {
+        self.next();
+        let value = self.parse_expr(Precedence::Lowest);
+        if self.current != Token::Semicolon {
+            self.lex.log_error(self.current.clone(), "Expect semicolon");
+            return None;
+        }
+        self.next();
+        Some(Stmt::Return(value.unwrap()))
     }
 
     fn parse_expr(&mut self, precedence: Precedence) -> Option<ExprType> {
@@ -325,7 +340,7 @@ impl<'a> Parser<'a> {
                 }
                 Token::LeftParen => {
                     left = self.parse_call(left.unwrap());
-                },
+                }
                 _ => return left,
             }
         }

@@ -47,6 +47,13 @@ impl Evaluator {
                 }
                 self.envs = current_env;
             }
+            Stmt::Return(expr) => {
+                let object = self.evaluate_expr(expr).unwrap();
+                if self.output {
+                    println!("{}", object);
+                }
+            },
+            Stmt::Blank => {},
         }
     }
 
@@ -295,6 +302,7 @@ impl Evaluator {
                 return Some(Object::Function(params.clone(), body.clone()));
             }
             ExprType::Call { callee, args } => {
+                let mut result = Some(Object::Nil);
                 let callee = self.evaluate_expr(&callee);
                 if let Some(Object::Function(ident, stmts)) = callee {
                     let current_env = Rc::clone(&self.envs);
@@ -305,12 +313,21 @@ impl Evaluator {
                         self.envs.borrow_mut().set_store(param.0.clone(), &arg);
                     }
                     for stmt in stmts {
-                        self.evaluate_stmt(&stmt);
+                        match stmt {
+                            Stmt::Return(expr) => {
+                                result = self.evaluate_expr(&expr);
+                                break;
+                            },
+                            Stmt::Blank => {},
+                            _ => {
+                                self.evaluate_stmt(&stmt);
+                            }
+                        }
                     }
                     self.envs = current_env;
                 }
 
-                return Some(Object::Nil);
+                return result;
             }
             _ => {
                 println!("{:?}", expr);
