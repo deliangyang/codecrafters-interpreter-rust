@@ -64,6 +64,7 @@ impl<'a> Parser<'a> {
             Token::Switch => self.parse_switch(),
             Token::While => self.parse_while(),
             Token::Class => self.parse_class(),
+            Token::For => self.parse_for_loop(),
             Token::LeftBrace => {
                 self.next();
                 let mut stmts: Progam = vec![];
@@ -129,6 +130,45 @@ impl<'a> Parser<'a> {
         Some(Stmt::Var(ident, expr))
     }
 
+    fn parse_for_loop(&mut self) -> Option<Stmt> {
+        self.next();
+        if self.current != Token::LeftParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect '(' after for");
+            return None;
+        }
+        self.next();
+        let init = match self.current {
+            Token::Var => self.parse_var_stmt().unwrap(),
+            _ => {
+                self.lex
+                    .log_error(self.current.clone(), "Expect var after for");
+                return None;
+            }
+        };
+        let condition = self.parse_expr(Precedence::Lowest).unwrap();
+        if self.current != Token::Semicolon {
+            self.lex
+                .log_error(self.current.clone(), "Expect ';' after for condition");
+            return None;
+        }
+        self.next();
+        
+        let step = self.parse_expr(Precedence::Lowest).unwrap();
+        if self.current != Token::RightParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect ')' after for condition");
+            return None;
+        }
+        self.next();
+        let block = self.parse_block().unwrap();
+        Some(Stmt::For {
+            init: Box::new(init),
+            conditions: Box::new(condition),
+            step: Box::new(Stmt::Expr(step)),
+            block: block,
+        })
+    }
 
     fn parse_class(&mut self) -> Option<Stmt> {
         self.next();

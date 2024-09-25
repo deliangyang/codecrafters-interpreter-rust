@@ -104,7 +104,30 @@ impl Evaluator {
                 let object = Object::Class(name.to_string().clone(), properties.clone());
                 self.envs.borrow_mut().set_store(name.to_string().clone(), &object);
             }
+            Stmt::For { init, conditions, step, block } => self.evaluate_for(init, conditions, step, block),
             _ => unimplemented!(),
+        }
+    }
+
+    fn evaluate_for(&mut self, init: &Stmt, conditions: &ExprType, step: &Stmt, block: &Vec<Stmt>) {
+        self.evaluate_stmt(init);
+        let mut condition = true;
+        while condition {
+            let result = self.evaluate_expr(conditions).unwrap();
+            if let Object::Boolean(result) = result {
+                if result {
+                    let current_env = Rc::clone(&self.envs);
+                    let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                    self.envs = Rc::new(RefCell::new(pre_envs));
+                    for stmt in block {
+                        self.evaluate_stmt(stmt);
+                    }
+                    self.envs = current_env;
+                    self.evaluate_stmt(step);
+                } else {
+                    condition = false;
+                }
+            }
         }
     }
 

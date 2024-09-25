@@ -25,7 +25,13 @@ pub enum Stmt {
     ClassStmt{
         name: Ident,
         properties: Vec<Stmt>,
-    }
+    },
+    For{
+        init: Box<Stmt>,
+        conditions: Box<ExprType>,
+        step: Box<Stmt>,
+        block: BlockStmt,
+    },
 }
 
 impl Display for Stmt {
@@ -89,7 +95,14 @@ impl Display for Stmt {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
-            }
+            },
+            Stmt::For{init, conditions, step, block} => {
+                write!(f, "for ({}; {}; {}) {{\n", init, conditions, step)?;
+                for stmt in block {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "}}")
+            },
         }
     }
 }
