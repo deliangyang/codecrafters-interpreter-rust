@@ -1,6 +1,6 @@
 use std::process::exit;
 
-use crate::ast::{ExprType, Ident, Literal, Precedence, Progam, Stmt};
+use crate::ast::{BlockStmt, ExprType, Ident, Literal, Precedence, Progam, Stmt};
 use crate::lexer::Lexing;
 use crate::token::{self, Token};
 
@@ -110,6 +110,79 @@ impl<'a> Parser<'a> {
         Some(Stmt::Var(ident, expr))
     }
 
+    fn parse_block(&mut self) -> Option<BlockStmt> {
+        self.next();
+        let mut stmts: Progam = vec![];
+        while self.current != Token::RightBrace {
+            match self.parse_stmt() {
+                Some(stmt) => {
+                    stmts.push(stmt);
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+        if self.current != Token::RightBrace {
+            eprintln!("self.current != Token::RightBrace");
+            exit(0);
+        }
+        self.next();
+        Some(stmts)
+    }
+
+    fn parse_if(&mut self) -> Option<ExprType> {
+        self.next();
+        if self.current != Token::LeftParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect '(' after if");
+            return None;
+        }
+        self.next();
+        let condition = self.parse_expr(Precedence::Lowest);
+        if self.current != Token::RightParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect ')' after if condition");
+            return None;
+        }
+        self.next();
+        let then_branch: Progam = self.parse_block().unwrap();
+        let mut elseif: Vec<(Box<ExprType>, Progam)> = vec![];
+        let mut else_branch: Progam = vec![];
+        
+        while self.current == Token::Else && self.next == Token::If {
+            self.next();
+            self.next();
+            if self.current != Token::LeftParen {
+                self.lex
+                    .log_error(self.current.clone(), "Expect '(' after if");
+                return None;
+            }
+            self.next();
+            let condition = self.parse_expr(Precedence::Lowest);
+            if self.current != Token::RightParen {
+                self.lex
+                    .log_error(self.current.clone(), "Expect ')' after if condition");
+                return None;
+            }
+            self.next();
+            let block = self.parse_block().unwrap();
+            elseif.push((Box::new(condition.unwrap()), block));
+        }
+        
+        if self.current == Token::Else {
+            self.next();
+            else_branch = self.parse_block().unwrap();
+        }
+
+        Some(ExprType::If {
+            condition: Box::new(condition.unwrap()),
+            elseif: elseif,
+            then_branch: then_branch,
+            else_branch: else_branch,
+        })
+    }
+
     fn current_token_precedence(&self) -> Precedence {
         self.token_precedence(self.current.clone())
     }
@@ -157,6 +230,7 @@ impl<'a> Parser<'a> {
                 self.next();
                 Some(ExprType::Literal(Literal::Nil))
             }
+            Token::If => self.parse_if(),
             Token::Print => {
                 self.next();
                 if self.current == Token::Semicolon {

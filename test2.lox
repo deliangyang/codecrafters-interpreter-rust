@@ -1,8 +1,8 @@
-{
-    var bar = "before";
-    {
-        var bar = "after";
-        print bar;
-    }
-    print bar;
+var x = 10;
+if (x == 3) {
+    print 2;
+} else if (x == 4) {
+    print 3;
+} else {
+    print 4;
 }

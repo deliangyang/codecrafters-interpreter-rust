@@ -54,6 +54,12 @@ pub enum ExprType {
     PrefixExpr(Token, Box<ExprType>),
     InfixExpr(Box<ExprType>, Token, Box<ExprType>),
     PrintExpr(Box<ExprType>),
+    If {
+        condition: Box<ExprType>,
+        elseif: Vec<(Box<ExprType>, BlockStmt)>,
+        then_branch: BlockStmt,
+        else_branch: BlockStmt,
+    },
 }
 
 impl Display for ExprType {
@@ -120,6 +126,28 @@ impl Display for ExprType {
             },
             ExprType::PrintExpr(expr) => {
                 write!(f, "(print {})", expr)
+            },
+            ExprType::If { condition, elseif, then_branch, else_branch } => {
+                write!(f, "if {} {{\n", condition)?;
+                for stmt in then_branch {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "}}")?;
+                for (cond, block) in elseif {
+                    write!(f, " else if {} {{\n", cond)?;
+                    for stmt in block {
+                        writeln!(f, "\t{}", stmt)?;
+                    }
+                    write!(f, "}}")?;
+                }
+                if !else_branch.is_empty() {
+                    write!(f, " else {{\n")?;
+                    for stmt in else_branch {
+                        writeln!(f, "\t{}", stmt)?;
+                    }
+                    write!(f, "}}")?;
+                }
+                Ok(())
             },
         }
     }

@@ -261,6 +261,36 @@ impl Evaluator {
                 println!("{}", expr);
                 return Some(Object::Nil);
             }
+            ExprType::If { condition, elseif, then_branch, else_branch } => {
+                let condition = self.evaluate_expr(condition).unwrap();
+                if let Object::Boolean(condition) = condition {
+                    if condition {
+                        for stmt in then_branch {
+                            self.evaluate_stmt(stmt);
+                        }
+                    } else {
+                        let mut condition = false;
+                        for (cond, block) in elseif {
+                            let cond = self.evaluate_expr(cond).unwrap();
+                            if let Object::Boolean(cond) = cond {
+                                if cond {
+                                    for stmt in block {
+                                        self.evaluate_stmt(stmt);
+                                    }
+                                    condition = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if !condition {
+                            for stmt in else_branch {
+                                self.evaluate_stmt(stmt);
+                            }
+                        }
+                    }
+                }
+                return Some(Object::Nil);
+            }
             _ => {
                 println!("{:?}", expr);
                 return Some(Object::Nil);
