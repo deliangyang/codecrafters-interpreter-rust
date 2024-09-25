@@ -53,6 +53,11 @@ impl Evaluator {
                     println!("{}", object);
                 }
             },
+            Stmt::Function(ident, args, body) => {
+                let name = ident.0.clone();
+                let object = Object::Function(args.clone(), body.clone());
+                self.envs.borrow_mut().set_store(name, &object);
+            },
             Stmt::Blank => {},
         }
     }

@@ -36,3 +36,14 @@ test2(1, 2);
 
 print "----------------------------------------";
 print test2(a, 2);
+
+
+print "------------------fun test3(a, b) ----------------------";
+
+fun test3(a, b) {
+    print a;
+    print b;
+    return a+b;
+}
+
+print test3(1, 2);

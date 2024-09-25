@@ -39,9 +39,26 @@ impl<'a> Parser<'a> {
         program
     }
 
+    fn parse_ident(&mut self) -> Option<Ident> {
+        match self.current.clone() {
+            Token::Identifier(s) => {
+                Some(Ident(s))
+            }
+            _ => None,
+        }
+    }
+
     fn parse_stmt(&mut self) -> Option<Stmt> {
         match self.current.clone() {
             Token::Eof => {
+                return None;
+            }
+            Token::Fun => {
+                self.next();
+                let indent = self.parse_ident().unwrap();
+                if let Some(ExprType::Function { params, body }) = self.parse_function() {
+                    return Some(Stmt::Function(indent, params, body));
+                }
                 return None;
             }
             Token::Return => self.parse_return(),

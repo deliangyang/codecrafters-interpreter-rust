@@ -17,6 +17,7 @@ pub enum Stmt {
     Expr(ExprType),
     Block(Vec<Stmt>),
     Return(ExprType),
+    Function(Ident, Vec<Ident>, BlockStmt),
 }
 
 impl Display for Stmt {
@@ -32,6 +33,20 @@ impl Display for Stmt {
             },
             Stmt::Return(e) => write!(f, "return {}", e),
             Stmt::Blank => write!(f, ""),
+            Stmt::Function(name, params, body) => {
+                write!(f, "fun {}(", name)?;
+                for (i, param) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", param)?;
+                }
+                write!(f, ") {{\n")?;
+                for stmt in body {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "}}")
+            },
         }
     }
 }
