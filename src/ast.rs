@@ -21,6 +21,7 @@ pub enum Stmt {
     Switch(ExprType, Vec<Stmt>),
     Case(ExprType, BlockStmt),
     Default(BlockStmt),
+    While(ExprType, BlockStmt),
 }
 
 impl Display for Stmt {
@@ -70,6 +71,13 @@ impl Display for Stmt {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 Ok(())
+            },
+            Stmt::While(expr, block) => {
+                write!(f, "while ({}) {{\n", expr)?;
+                for stmt in block {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "}}")
             },
         }
     }

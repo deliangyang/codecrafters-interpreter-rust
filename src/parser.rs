@@ -62,6 +62,7 @@ impl<'a> Parser<'a> {
             Token::Return => self.parse_return(),
             Token::Var => self.parse_var_stmt(),
             Token::Switch => self.parse_switch(),
+            Token::While => self.parse_while(),
             Token::LeftBrace => {
                 self.next();
                 let mut stmts: Progam = vec![];
@@ -125,6 +126,30 @@ impl<'a> Parser<'a> {
         }
         self.next();
         Some(Stmt::Var(ident, expr))
+    }
+
+    fn parse_while(&mut self) -> Option<Stmt> {
+        self.next();
+        if self.current != Token::LeftParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect '(' after while");
+            return None;
+        }
+        self.next();
+        let expr = self.parse_expr(Precedence::Lowest).unwrap();
+        if self.current != Token::RightParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect ')' after while condition");
+            return None;
+        }
+        self.next();
+        if self.current != Token::LeftBrace {
+            self.lex
+                .log_error(self.current.clone(), "Expect '{' after while condition");
+            return None;
+        }
+        let body = self.parse_block().unwrap();
+        Some(Stmt::While(expr, body))
     }
 
     fn parse_case_block(&mut self) -> Option<BlockStmt> {

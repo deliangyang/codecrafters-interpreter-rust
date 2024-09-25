@@ -81,6 +81,25 @@ impl Evaluator {
                     }
                 }
             }
+            Stmt::While(expr, block) => {
+                let mut condition = true;
+                while condition {
+                    let result = self.evaluate_expr(expr).unwrap();
+                    if let Object::Boolean(result) = result {
+                        if result {
+                            let current_env = Rc::clone(&self.envs);
+                            let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                            self.envs = Rc::new(RefCell::new(pre_envs));
+                            for stmt in block {
+                                self.evaluate_stmt(stmt);
+                            }
+                            self.envs = current_env;
+                        } else {
+                            condition = false;
+                        }
+                    }
+                }
+            }
             _ => unimplemented!(),
         }
     }

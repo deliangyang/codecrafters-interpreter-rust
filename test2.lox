@@ -57,3 +57,13 @@ switch (x) {
     case 5: print 5;
     default: print "default";
 }
+
+print "------------------while loop (print 1 - 10)---------------------";
+
+x = 1;
+while (x < 10) {
+    print x;
+    x = x + 1;
+}
+
+print "------------------for loop----------------------";
