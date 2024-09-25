@@ -214,6 +214,22 @@ impl<'a> Parser<'a> {
         Some(ExprType::Function { params, body })
     }
 
+    fn parse_call(&mut self, left: ExprType) -> Option<ExprType> {
+        self.next();
+        let mut args = vec![];
+        while self.current != Token::RightParen {
+            let arg = self.parse_expr(Precedence::Lowest);
+            if let Some(arg) = arg {
+                args.push(arg);
+            }
+            if self.current == Token::Comma {
+                self.next();
+            }
+        }
+        self.next();
+        Some(ExprType::Call { callee: Box::new(left), args: args })
+    }
+
     fn current_token_precedence(&self) -> Precedence {
         self.token_precedence(self.current.clone())
     }
@@ -230,6 +246,7 @@ impl<'a> Parser<'a> {
             }
             Token::Star | Token::Slash => Precedence::Star,
             Token::Plus | Token::Minus => Precedence::Plus,
+            Token::LeftParen => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -306,6 +323,9 @@ impl<'a> Parser<'a> {
                 | Token::GreaterEqual => {
                     left = self.parse_infix_expr(left.unwrap());
                 }
+                Token::LeftParen => {
+                    left = self.parse_call(left.unwrap());
+                },
                 _ => return left,
             }
         }

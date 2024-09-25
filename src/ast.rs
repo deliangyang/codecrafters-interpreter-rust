@@ -64,6 +64,10 @@ pub enum ExprType {
         params: Vec<Ident>,
         body: BlockStmt,
     },
+    Call {
+        callee: Box<ExprType>,
+        args: Vec<ExprType>,
+    },
 }
 
 impl Display for ExprType {
@@ -166,6 +170,16 @@ impl Display for ExprType {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "\n}}\n")
+            },
+            ExprType::Call { callee, args } => {
+                write!(f, "{}(", callee)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
             },
         }
     }

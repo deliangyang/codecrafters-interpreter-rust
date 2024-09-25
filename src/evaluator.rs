@@ -291,6 +291,27 @@ impl Evaluator {
                 }
                 return Some(Object::Nil);
             }
+            ExprType::Function { params, body } => {
+                return Some(Object::Function(params.clone(), body.clone()));
+            }
+            ExprType::Call { callee, args } => {
+                let callee = self.evaluate_expr(&callee);
+                if let Some(Object::Function(ident, stmts)) = callee {
+                    let current_env = Rc::clone(&self.envs);
+                    let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                    self.envs = Rc::new(RefCell::new(pre_envs));
+                    for (i, param) in ident.iter().enumerate() {
+                        let arg: Object = self.evaluate_expr(&args[i]).unwrap();
+                        self.envs.borrow_mut().set_store(param.0.clone(), &arg);
+                    }
+                    for stmt in stmts {
+                        self.evaluate_stmt(&stmt);
+                    }
+                    self.envs = current_env;
+                }
+
+                return Some(Object::Nil);
+            }
             _ => {
                 println!("{:?}", expr);
                 return Some(Object::Nil);

@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::ast;
+
 pub type BuiltinFunc = fn(Vec<Object>) -> Object;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -9,6 +11,7 @@ pub enum Object {
     Number(f64),
     String(String),
     Builtin(i32, BuiltinFunc),
+    Function(Vec<ast::Ident>, ast::BlockStmt),
 }
 
 impl Display for Object {
@@ -19,6 +22,16 @@ impl Display for Object {
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
             Object::Builtin(c, func) => write!(f, "builtin function: {} {:?}", c, func),
+            Object::Function(params, body) => {
+                let mut params_str = String::new();
+                for (i, param) in params.iter().enumerate() {
+                    if i > 0 {
+                        params_str.push_str(", ");
+                    }
+                    params_str.push_str(&param.0);
+                }
+                write!(f, "fn({}) {:?}", params_str, body)
+            }
         }
     }
 }

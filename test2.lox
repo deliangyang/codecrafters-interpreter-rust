@@ -7,6 +7,8 @@ if (x == 3) {
     print 4;
 }
 
+var a = 10;
+
 var test = fun () {
     var foo = "outer foo";
     var hello = "outer hello";
@@ -16,6 +18,20 @@ var test = fun () {
         print foo;
         print hello;
     }
+    a = 20;
+    print a;
     print foo;
     print hello;
 };
+
+var test2 = fun(a, b) {
+    print a;
+    print b;
+};
+
+test();
+
+test2(1, 2);
+
+print "----------------------------------------";
+test2(a, 2);
