@@ -12,6 +12,7 @@ pub enum Object {
     String(String),
     Builtin(i32, BuiltinFunc),
     Function(Vec<ast::Ident>, ast::BlockStmt),
+    Class(String, Vec<ast::Stmt>),
 }
 
 impl Display for Object {
@@ -31,7 +32,14 @@ impl Display for Object {
                     params_str.push_str(&param.0);
                 }
                 write!(f, "fn({}) {:?}", params_str, body)
-            }
+            },
+            Object::Class(name, properties) => {
+                write!(f, "class {} {{\n", name)?;
+                for prop in properties {
+                    writeln!(f, "\t{}", prop)?;
+                }
+                write!(f, "}}")
+            },
         }
     }
 }

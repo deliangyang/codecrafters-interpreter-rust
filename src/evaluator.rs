@@ -100,6 +100,10 @@ impl Evaluator {
                     }
                 }
             }
+            Stmt::ClassStmt { name, properties } => {
+                let object = Object::Class(name.to_string().clone(), properties.clone());
+                self.envs.borrow_mut().set_store(name.to_string().clone(), &object);
+            }
             _ => unimplemented!(),
         }
     }

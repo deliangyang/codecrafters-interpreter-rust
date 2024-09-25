@@ -67,3 +67,19 @@ while (x < 10) {
 }
 
 print "------------------for loop----------------------";
+
+
+print "------------------ class test ----------------------";
+class Foo {
+    var a;
+
+    fun init(a, b) {
+        this.a = a;
+        this.b = b;
+    }
+
+    fun printx() {
+        print this.a;
+        print this.b;
+    }
+}

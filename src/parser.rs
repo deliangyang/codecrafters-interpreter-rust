@@ -63,6 +63,7 @@ impl<'a> Parser<'a> {
             Token::Var => self.parse_var_stmt(),
             Token::Switch => self.parse_switch(),
             Token::While => self.parse_while(),
+            Token::Class => self.parse_class(),
             Token::LeftBrace => {
                 self.next();
                 let mut stmts: Progam = vec![];
@@ -128,6 +129,21 @@ impl<'a> Parser<'a> {
         Some(Stmt::Var(ident, expr))
     }
 
+
+    fn parse_class(&mut self) -> Option<Stmt> {
+        self.next();
+        let ident = self.parse_ident().unwrap();
+        self.next();
+        if self.current != Token::LeftBrace {
+            self.lex
+                .log_error(self.current.clone(), "Expect '{' after class name");
+            return None;
+        }
+        let properties = self.parse_block().unwrap();
+
+        Some(Stmt::ClassStmt { name: ident, properties: properties })
+    }
+
     fn parse_while(&mut self) -> Option<Stmt> {
         self.next();
         if self.current != Token::LeftParen {
@@ -183,8 +199,9 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+
         if self.current != Token::RightBrace {
-            eprintln!("self.current != Token::RightBrace");
+            eprintln!("self.current != Token::RightBrace {:?}", self.current);
             exit(0);
         }
         self.next();
@@ -405,6 +422,18 @@ impl<'a> Parser<'a> {
             Token::Nil => {
                 self.next();
                 Some(ExprType::Literal(Literal::Nil))
+            }
+            Token::This => {
+                self.next();
+                if self.current != Token::Dot {
+                    self.lex
+                        .log_error(self.current.clone(), "Expect '.' after this");
+                    return None;
+                }
+                self.next();
+                let ident = self.parse_ident().unwrap();
+                self.next();
+                Some(ExprType::ThisExpr(ident))
             }
             Token::If => self.parse_if(),
             Token::Fun => self.parse_function(),

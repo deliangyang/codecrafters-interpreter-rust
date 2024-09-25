@@ -22,6 +22,10 @@ pub enum Stmt {
     Case(ExprType, BlockStmt),
     Default(BlockStmt),
     While(ExprType, BlockStmt),
+    ClassStmt{
+        name: Ident,
+        properties: Vec<Stmt>,
+    }
 }
 
 impl Display for Stmt {
@@ -79,6 +83,13 @@ impl Display for Stmt {
                 }
                 write!(f, "}}")
             },
+            Stmt::ClassStmt { name, properties } => {
+                write!(f, "class {} {{\n", name)?;
+                for stmt in properties {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -98,6 +109,7 @@ pub enum Literal {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprType {
     Ident(Ident),
+    ThisExpr(Ident),
     Literal(Literal),
     GroupingExpr(Box<ExprType>),
     UnaryExpr(Token, Box<ExprType>), // prefix unary parse
@@ -232,6 +244,7 @@ impl Display for ExprType {
                 }
                 write!(f, ")")
             },
+            ExprType::ThisExpr(ident) => write!(f, "this.{}", ident.0),
         }
     }
 }
