@@ -38,6 +38,9 @@ impl<'a> Lexing<'a> {
                 ("this", Token::This),
                 ("true", Token::True),
                 ("while", Token::While),
+                ("switch", Token::Switch),
+                ("case", Token::Case),
+                ("default", Token::Default),
             ]),
         }
     }
@@ -163,6 +166,10 @@ impl<'a> Lexing<'a> {
                 '}' => {
                     self.get_char();
                     return Token::RightBrace;
+                }
+                ':' => {
+                    self.get_char();
+                    return Token::Colon;
                 }
                 '*' => {
                     self.get_char();

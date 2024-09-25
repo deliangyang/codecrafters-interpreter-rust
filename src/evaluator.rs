@@ -59,6 +59,29 @@ impl Evaluator {
                 self.envs.borrow_mut().set_store(name, &object);
             },
             Stmt::Blank => {},
+            Stmt::Switch(expr, cases) => {
+                let result = self.evaluate_expr(expr).unwrap();
+                for stmt in cases {
+                    match stmt {
+                        Stmt::Case(expr, block) => {
+                            let case = self.evaluate_expr(expr).unwrap();
+                            if case == result {
+                                for stmt in block {
+                                    self.evaluate_stmt(stmt);
+                                }
+                                break;
+                            }
+                        }
+                        Stmt::Default(block) => {
+                            for stmt in block {
+                                self.evaluate_stmt(stmt);
+                            }
+                        }
+                        _ => unimplemented!(),
+                    }
+                }
+            }
+            _ => unimplemented!(),
         }
     }
 

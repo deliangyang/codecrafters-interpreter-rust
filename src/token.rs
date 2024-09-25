@@ -20,6 +20,9 @@ pub enum Token {
     This,
     True,
     While,
+    Switch,
+    Case,
+    Default,
     Identifier(String),
     Equal,
     String(String),
@@ -39,6 +42,7 @@ pub enum Token {
     Plus,  // +
     Comma, // ,
     Dot,   // .
+    Colon, // :
 
     EqualEqual, // ==
     Bang,       // !
@@ -95,6 +99,10 @@ impl Display for Token {
             Token::Greater => write!(f, "GREATER > null"),
             Token::GreaterEqual => write!(f, "GREATER_EQUAL >= null"),
             Token::Comment(s) => write!(f, "COMMENT //{} null", s),
+            Token::Switch => write!(f, "SWITCH switch null"),
+            Token::Case => write!(f, "CASE case null"),
+            Token::Default => write!(f, "DEFAULT default null"),
+            Token::Colon => write!(f, "COLON : null"),
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;

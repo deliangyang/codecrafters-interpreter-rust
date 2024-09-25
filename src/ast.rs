@@ -18,6 +18,9 @@ pub enum Stmt {
     Block(Vec<Stmt>),
     Return(ExprType),
     Function(Ident, Vec<Ident>, BlockStmt),
+    Switch(ExprType, Vec<Stmt>),
+    Case(ExprType, BlockStmt),
+    Default(BlockStmt),
 }
 
 impl Display for Stmt {
@@ -46,6 +49,27 @@ impl Display for Stmt {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
+            },
+            Stmt::Switch(e, cases) => {
+                write!(f, "switch {} {{\n", e)?;
+                for stmt in cases {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "}}")
+            },
+            Stmt::Case(e, block) => {
+                write!(f, "case {}: \n", e)?;
+                for stmt in block {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                Ok(())
+            },
+            Stmt::Default(block) => {
+                write!(f, "default:\n")?;
+                for stmt in block {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                Ok(())
             },
         }
     }

@@ -41,9 +41,7 @@ impl<'a> Parser<'a> {
 
     fn parse_ident(&mut self) -> Option<Ident> {
         match self.current.clone() {
-            Token::Identifier(s) => {
-                Some(Ident(s))
-            }
+            Token::Identifier(s) => Some(Ident(s)),
             _ => None,
         }
     }
@@ -63,6 +61,7 @@ impl<'a> Parser<'a> {
             }
             Token::Return => self.parse_return(),
             Token::Var => self.parse_var_stmt(),
+            Token::Switch => self.parse_switch(),
             Token::LeftBrace => {
                 self.next();
                 let mut stmts: Progam = vec![];
@@ -126,6 +125,24 @@ impl<'a> Parser<'a> {
         }
         self.next();
         Some(Stmt::Var(ident, expr))
+    }
+
+    fn parse_case_block(&mut self) -> Option<BlockStmt> {
+        let mut stmts = vec![];
+        while self.current != Token::RightBrace
+            && self.current != Token::Case
+            && self.current != Token::Default
+        {
+            match self.parse_stmt() {
+                Some(stmt) => {
+                    stmts.push(stmt);
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+        Some(stmts)
     }
 
     fn parse_block(&mut self) -> Option<BlockStmt> {
@@ -281,6 +298,60 @@ impl<'a> Parser<'a> {
         }
         self.next();
         Some(Stmt::Return(value.unwrap()))
+    }
+
+    fn parse_switch(&mut self) -> Option<Stmt> {
+        self.next();
+        let expr = self.parse_expr(Precedence::Lowest).unwrap();
+        let mut cases = vec![];
+        if self.current != Token::LeftBrace {
+            self.lex
+                .log_error(self.current.clone(), "Expect '{' after switch");
+            return None;
+        }
+        self.next();
+
+        while self.current == Token::Case {
+            let case = self.parse_case().unwrap();
+            cases.push(case);
+        }
+
+        if self.current == Token::Default {
+            let default = self.parse_default().unwrap();
+            cases.push(default);
+        }
+
+        if self.current != Token::RightBrace {
+            self.lex
+                .log_error(self.current.clone(), "Expect '}' after switch");
+            return None;
+        }
+        self.next();
+
+        Some(Stmt::Switch(expr, cases))
+    }
+
+    fn parse_case(&mut self) -> Option<Stmt> {
+        self.next();
+        let left = self.parse_expr(Precedence::Lowest);
+        if self.current != Token::Colon {
+            self.lex.log_error(self.current.clone(), "Expect Colon");
+            return None;
+        }
+        self.next();
+        let body = self.parse_case_block().unwrap();
+        Some(Stmt::Case(left.unwrap(), body))
+    }
+
+    fn parse_default(&mut self) -> Option<Stmt> {
+        self.next();
+        if self.current != Token::Colon {
+            self.lex.log_error(self.current.clone(), "Expect Colon");
+            return None;
+        }
+        self.next();
+        let body = self.parse_case_block().unwrap();
+        Some(Stmt::Default(body))
     }
 
     fn parse_expr(&mut self, precedence: Precedence) -> Option<ExprType> {
