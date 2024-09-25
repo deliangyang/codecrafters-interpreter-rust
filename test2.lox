@@ -6,3 +6,16 @@ if (x == 3) {
 } else {
     print 4;
 }
+
+var test = fun () {
+    var foo = "outer foo";
+    var hello = "outer hello";
+    {
+        foo = "modified foo";
+        var hello = "inner hello";
+        print foo;
+        print hello;
+    }
+    print foo;
+    print hello;
+};

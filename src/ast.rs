@@ -60,6 +60,10 @@ pub enum ExprType {
         then_branch: BlockStmt,
         else_branch: BlockStmt,
     },
+    Function {
+        params: Vec<Ident>,
+        body: BlockStmt,
+    },
 }
 
 impl Display for ExprType {
@@ -148,6 +152,20 @@ impl Display for ExprType {
                     write!(f, "}}")?;
                 }
                 Ok(())
+            },
+            ExprType::Function { params, body } => {
+                write!(f, "fn(")?;
+                for (i, param) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", param)?;
+                }
+                write!(f, ") {{\n")?;
+                for stmt in body {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "\n}}\n")
             },
         }
     }

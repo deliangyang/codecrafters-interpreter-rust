@@ -183,6 +183,37 @@ impl<'a> Parser<'a> {
         })
     }
 
+    fn parse_function(&mut self) -> Option<ExprType> {
+        self.next();
+        if self.current != Token::LeftParen {
+            self.lex
+                .log_error(self.current.clone(), "Expect '(' after function");
+            return None;
+        }
+        self.next();
+        let mut params: Vec<Ident> = vec![];
+        while self.current != Token::RightParen {
+            let ident = match self.current.clone() {
+                Token::Identifier(s) => {
+                    self.next();
+                    Ident(s)
+                }
+                _ => {
+                    self.lex
+                        .log_error(self.current.clone(), "Expect identifier");
+                    return None;
+                }
+            };
+            params.push(ident);
+            if self.current == Token::Comma {
+                self.next();
+            }
+        }
+        self.next();
+        let body = self.parse_block().unwrap();
+        Some(ExprType::Function { params, body })
+    }
+
     fn current_token_precedence(&self) -> Precedence {
         self.token_precedence(self.current.clone())
     }
@@ -231,6 +262,7 @@ impl<'a> Parser<'a> {
                 Some(ExprType::Literal(Literal::Nil))
             }
             Token::If => self.parse_if(),
+            Token::Fun => self.parse_function(),
             Token::Print => {
                 self.next();
                 if self.current == Token::Semicolon {
