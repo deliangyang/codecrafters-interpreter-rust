@@ -127,6 +127,8 @@ pub enum Literal {
     Number(f64),
     String(String),
     Bool(bool),
+    Index(usize),
+    Array(Vec<ExprType>),
     Nil,
 }
 
@@ -140,6 +142,7 @@ pub enum ExprType {
     PrefixExpr(Token, Box<ExprType>),
     InfixExpr(Box<ExprType>, Token, Box<ExprType>),
     PrintExpr(Box<ExprType>),
+    IndexExpr(Box<ExprType>, Box<ExprType>),
     If {
         condition: Box<ExprType>,
         elseif: Vec<(Box<ExprType>, BlockStmt)>,
@@ -187,9 +190,20 @@ impl Display for ExprType {
                             write!(f, "{}.0", inum)
                         }
                     },
+                    Literal::Index(i) => write!(f, "{}", i),
                     Literal::String(s) => write!(f, "{}", s),
                     Literal::Bool(b) => write!(f, "{}", b),
                     Literal::Nil => write!(f, "nil"),
+                    Literal::Array(arr) => {
+                        write!(f, "[")?;
+                        for (i, expr) in arr.iter().enumerate() {
+                            if i > 0 {
+                                write!(f, ", ")?;
+                            }
+                            write!(f, "{}", expr)?;
+                        }
+                        write!(f, "]")
+                    },
                 }
             },
             ExprType::GroupingExpr(expr) => {
@@ -289,6 +303,9 @@ impl Display for ExprType {
                     write!(f, "{}", arg)?;
                 }
                 write!(f, ")")
+            },
+            ExprType::IndexExpr(left, right) => {
+                write!(f, "{}[{}]", left, right)
             },
         }
     }

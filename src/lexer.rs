@@ -172,6 +172,14 @@ impl<'a> Lexing<'a> {
                     self.get_char();
                     return Token::Colon;
                 }
+                '[' => {
+                    self.get_char();
+                    return Token::LeftBracket;
+                }
+                ']' => {
+                    self.get_char();
+                    return Token::RightBracket;
+                }
                 '*' => {
                     self.get_char();
                     return Token::Star;

@@ -152,6 +152,14 @@ impl Evaluator {
                 Literal::Bool(v) => Some(Object::Boolean(*v)),
                 Literal::Nil => Some(Object::Nil),
                 Literal::String(s) => Some(Object::String(s.clone())),
+                Literal::Array(arr) => {
+                    let mut elements = Vec::new();
+                    for elem in arr {
+                        elements.push(self.evaluate_expr(elem).unwrap());
+                    }
+                    Some(Object::Array(elements))
+                }
+                Literal::Index(index) => Some(Object::Index(*index)),
             },
             ExprType::Ident(v) => {
                 if let Some(builtin) = self.builtins.get(&v.0) {
@@ -194,7 +202,6 @@ impl Evaluator {
                             let name = ident.0.clone();
                             let object = self.evaluate_expr(right).unwrap();
                             self.envs.borrow_mut().set(name, &object);
-                            // println!("{}", object);
                             return Some(object);
                         }
                         ExprType::ThisExpr(ident) => {
@@ -361,27 +368,41 @@ impl Evaluator {
             ExprType::Call { callee, args } => {
                 let mut result = Some(Object::Nil);
                 let callee = self.evaluate_expr(&callee);
-                if let Some(Object::Function(ident, stmts)) = callee {
-                    let current_env = Rc::clone(&self.envs);
-                    let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
-                    self.envs = Rc::new(RefCell::new(pre_envs));
-                    for (i, param) in ident.iter().enumerate() {
-                        let arg: Object = self.evaluate_expr(&args[i]).unwrap();
-                        self.envs.borrow_mut().set_store(param.0.clone(), &arg);
+                match callee {
+                    Some(Object::Builtin(argc, fun)) => {
+                        let mut args_vec = Vec::new();
+                        for arg in args {
+                            args_vec.push(self.evaluate_expr(arg).unwrap());
+                        }
+                        if args_vec.len() as i32 != argc {
+                            println!("Expected {} arguments but got {}.", argc, args_vec.len());
+                            exit(70);
+                        }
+                        result = Some(fun(args_vec));
                     }
-                    for stmt in stmts {
-                        match stmt {
-                            Stmt::Return(expr) => {
-                                result = self.evaluate_expr(&expr);
-                                break;
-                            }
-                            Stmt::Blank => {}
-                            _ => {
-                                self.evaluate_stmt(&stmt);
+                    Some(Object::Function(ident, stmts)) => {
+                        let current_env = Rc::clone(&self.envs);
+                        let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                        self.envs = Rc::new(RefCell::new(pre_envs));
+                        for (i, param) in ident.iter().enumerate() {
+                            let arg: Object = self.evaluate_expr(&args[i]).unwrap();
+                            self.envs.borrow_mut().set_store(param.0.clone(), &arg);
+                        }
+                        for stmt in stmts {
+                            match stmt {
+                                Stmt::Return(expr) => {
+                                    result = self.evaluate_expr(&expr);
+                                    break;
+                                }
+                                Stmt::Blank => {}
+                                _ => {
+                                    self.evaluate_stmt(&stmt);
+                                }
                             }
                         }
-                    }
-                    self.envs = current_env;
+                        self.envs = current_env;
+                    },
+                    _ => unimplemented!("not found {:?}", callee),
                 }
 
                 return result;
@@ -419,7 +440,7 @@ impl Evaluator {
                     self.envs = current_env;
                 }
 
-                return Some(Object::ClassInstance{
+                return Some(Object::ClassInstance {
                     name: name.clone().to_string(),
                     class: Rc::new(RefCell::new(class.clone())),
                     properties: Rc::new(RefCell::new(HashMap::new())),
@@ -455,6 +476,20 @@ impl Evaluator {
             ExprType::ThisExpr(ident) => {
                 let object = self.envs.borrow_mut().get(ident.0.clone()).unwrap();
                 return Some(object.clone());
+            }
+            ExprType::IndexExpr(ident, index) => {
+                let identx = ident.clone();
+                if let ExprType::Ident(ident) = identx.clone().as_ref() {
+                    let object = self.envs.borrow_mut().get(ident.0.clone()).unwrap();
+                    if let Object::Array(arr) = object {
+                        if let Object::Index(index) = self.evaluate_expr(index).unwrap() {
+                            return Some(arr[index].clone());
+                        } else if let Object::Number(index) = self.evaluate_expr(index).unwrap() {
+                            return Some(arr[index as usize].clone());
+                        }
+                    }
+                }
+                return Some(Object::Nil);
             }
             _ => {
                 println!("not found2 {:?}", expr);

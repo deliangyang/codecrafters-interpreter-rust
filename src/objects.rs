@@ -9,7 +9,9 @@ pub enum Object {
     Boolean(bool),
     Nil,
     Number(f64),
+    Index(usize),
     String(String),
+    Array(Vec<Object>),
     Builtin(i32, BuiltinFunc),
     Function(Vec<ast::Ident>, ast::BlockStmt),
     Class(String, Vec<ast::Stmt>),
@@ -38,6 +40,17 @@ impl Display for Object {
                 }
                 write!(f, "fn({}) {:?}", params_str, body)
             }
+            Object::Array(elements) => {
+                let mut elements_str = String::new();
+                for (i, elem) in elements.iter().enumerate() {
+                    if i > 0 {
+                        elements_str.push_str(", ");
+                    }
+                    elements_str.push_str(&elem.to_string());
+                }
+                write!(f, "[{}]", elements_str)
+            },
+            Object::Index(i) => write!(f, "{}", i),
             Object::Class(name, properties) => {
                 write!(f, "class {} {{\n", name)?;
                 for prop in properties {
@@ -45,7 +58,7 @@ impl Display for Object {
                 }
                 write!(f, "}}")
             },
-            Object::ClassInstance{name, class, properties} => {
+            Object::ClassInstance{name, class: _, properties} => {
                 write!(f, "instance of class {} {{\n", name)?;
                 for (key, value) in properties.borrow().iter() {
                     writeln!(f, "\t{}: {}", key, value)?;

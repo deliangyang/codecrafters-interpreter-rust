@@ -36,6 +36,10 @@ pub enum Token {
 
     LeftBrace,  // {
     RightBrace, // }
+
+    LeftBracket,  // [
+    RightBracket, // ]
+
     // ,, ., -, +, ; and *. /
     Star,  // *
     Slash, // /
@@ -105,6 +109,8 @@ impl Display for Token {
             Token::Default => write!(f, "DEFAULT default null"),
             Token::Colon => write!(f, "COLON : null"),
             Token::New => write!(f, "NEW new null"),
+            Token::LeftBracket => write!(f, "LEFT_BRACKET [ null"),
+            Token::RightBracket => write!(f, "RIGHT_BRACKET ] null"),
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;

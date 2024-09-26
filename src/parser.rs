@@ -367,6 +367,7 @@ impl<'a> Parser<'a> {
             Token::Star | Token::Slash => Precedence::Star,
             Token::Plus | Token::Minus => Precedence::Plus,
             Token::LeftParen => Precedence::Call,
+            Token::LeftBracket => Precedence::Index,
             Token::Dot => Precedence::Call,
             _ => Precedence::Lowest,
         }
@@ -460,6 +461,21 @@ impl<'a> Parser<'a> {
                 self.next();
                 Some(ExprType::Literal(Literal::String(s)))
             }
+            Token::LeftBracket => {
+                self.next();
+                let mut elements = vec![];
+                while self.current != Token::RightBracket {
+                    let element = self.parse_expr(Precedence::Lowest);
+                    if let Some(element) = element {
+                        elements.push(element);
+                    }
+                    if self.current == Token::Comma {
+                        self.next();
+                    }
+                }
+                self.next();
+                Some(ExprType::Literal(Literal::Array(elements)))
+            }
             Token::Nil => {
                 self.next();
                 Some(ExprType::Literal(Literal::Nil))
@@ -499,6 +515,7 @@ impl<'a> Parser<'a> {
                 return None;
             }
         };
+        // println!("left: {:?} {:?}", left, self.current);
         // println!(
         //     "left: {:?} precedence:{:?} current_precedence:{:?}, token: {:?}, < {:?}",
         //     left,
@@ -525,6 +542,9 @@ impl<'a> Parser<'a> {
                 }
                 Token::LeftParen => {
                     left = self.parse_call(left.unwrap());
+                }
+                Token::LeftBracket => {
+                    left =self.parse_index_expr(left.unwrap());
                 }
                 Token::Dot => {
                     let class_name = match left {
@@ -557,6 +577,27 @@ impl<'a> Parser<'a> {
         }
 
         left
+    }
+
+    fn parse_index_expr(&mut self, left: ExprType) -> Option<ExprType> {
+        self.next();
+        let index = self.parse_expr(Precedence::Lowest).unwrap();
+
+        if self.current == Token::RightBracket {
+            self.next();
+        } else {
+            self.lex
+                .log_error(self.current.clone(), "Expect ']' after index");
+            return None;
+        }
+
+        if let ExprType::Literal(Literal::Number(v)) = index {
+            return Some(ExprType::IndexExpr(
+                Box::new(left), 
+                Box::new(ExprType::Literal(Literal::Index(v as usize)))));
+        }
+
+        Some(ExprType::IndexExpr(Box::new(left), Box::new(index)))
     }
 
     fn parse_args_list(&mut self) -> Option<Vec<ExprType>> {
