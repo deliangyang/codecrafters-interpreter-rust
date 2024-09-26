@@ -42,6 +42,7 @@ impl<'a> Lexing<'a> {
                 ("case", Token::Case),
                 ("default", Token::Default),
                 ("new", Token::New),
+                ("in", Token::In)
             ]),
         }
     }

@@ -8,6 +8,7 @@ pub enum Token {
     And,
     Class,
     New,
+    In,
     Else,
     False,
     For,
@@ -111,6 +112,7 @@ impl Display for Token {
             Token::New => write!(f, "NEW new null"),
             Token::LeftBracket => write!(f, "LEFT_BRACKET [ null"),
             Token::RightBracket => write!(f, "RIGHT_BRACKET ] null"),
+            Token::In => write!(f, "IN in null"),
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;

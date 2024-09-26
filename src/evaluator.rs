@@ -36,7 +36,6 @@ impl Evaluator {
             Stmt::Var(ident, expr) => {
                 let name = ident.0.clone();
                 let object = self.evaluate_expr(expr).unwrap();
-                println!("{:?} {:?} {:?}", name, object, expr);
                 self.envs.borrow_mut().set_store(name, &object);
             }
             Stmt::Expr(expr) => {
@@ -119,6 +118,25 @@ impl Evaluator {
                 step,
                 block,
             } => self.evaluate_for(init, conditions, step, block),
+            Stmt::ForIn { var, iter, block } => {
+                let iter = self.evaluate_expr(iter).unwrap();
+                let ident = match var.as_ref() {
+                    Stmt::Var(ident, _) => ident,
+                    _ => unimplemented!(),
+                };
+                if let Object::Hash(hash) = iter {
+                    for (key, _) in hash {
+                        let current_env = Rc::clone(&self.envs);
+                        let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                        self.envs = Rc::new(RefCell::new(pre_envs));
+                        self.envs.borrow_mut().set(ident.0.clone(), &key);
+                        for stmt in block {
+                            self.evaluate_stmt(stmt);
+                        }
+                        self.envs = current_env;
+                    }
+                }
+            }
             _ => unimplemented!(),
         }
     }
@@ -158,6 +176,15 @@ impl Evaluator {
                         elements.push(self.evaluate_expr(elem).unwrap());
                     }
                     Some(Object::Array(elements))
+                }
+                Literal::Hash(hash) => {
+                    let mut hash_map = HashMap::new();
+                    for (key, value) in hash {
+                        let key = self.evaluate_expr(key).unwrap();
+                        let value = self.evaluate_expr(value).unwrap();
+                        hash_map.insert(key, value);
+                    }
+                    Some(Object::Hash(hash_map))
                 }
                 Literal::Index(index) => Some(Object::Index(*index)),
             },
@@ -401,7 +428,7 @@ impl Evaluator {
                             }
                         }
                         self.envs = current_env;
-                    },
+                    }
                     _ => unimplemented!("not found {:?}", callee),
                 }
 
@@ -478,23 +505,31 @@ impl Evaluator {
                 return Some(object.clone());
             }
             ExprType::IndexExpr(ident, index) => {
-                let identx = ident.clone();
-                if let ExprType::Ident(ident) = identx.clone().as_ref() {
-                    let object = self.envs.borrow_mut().get(ident.0.clone()).unwrap();
-                    if let Object::Array(arr) = object {
-                        if let Object::Index(index) = self.evaluate_expr(index).unwrap() {
-                            return Some(arr[index].clone());
-                        } else if let Object::Number(index) = self.evaluate_expr(index).unwrap() {
-                            return Some(arr[index as usize].clone());
-                        }
-                    }
-                }
-                return Some(Object::Nil);
+                let left = self.evaluate_expr(ident).unwrap();
+                let index = self.evaluate_expr(index).unwrap();
+                return self.eval_index_expr(left, index);                
             }
             _ => {
                 println!("not found2 {:?}", expr);
                 return Some(Object::Nil);
             }
+        }
+    }
+
+    fn eval_index_expr(&mut self, left: Object, index: Object) -> Option<Object> {
+        match left {
+            Object::Array(arr) => {
+                if let Object::Index(index) = index {
+                    return Some(arr[index].clone());
+                } else if let Object::Number(index) = index {
+                    return Some(arr[index as usize].clone());
+                }
+                return Some(Object::Nil)
+            },
+            Object::Hash(hash) => {
+                return Some(hash.get(&index).unwrap().clone());
+            },
+            _ => unimplemented!("not found {:?}", left),
         }
     }
 }

@@ -1,0 +1,28 @@
+var hash = {
+    "key": "value",
+    "key2": 1,
+    "key3": {
+        "key4": "value4"
+    },
+    "key4": [1, 2, 3, 4, 5]
+};
+
+print hash["key"];
+
+print hash["key2"];
+
+print hash["key3"]["key4"];
+
+print "--------hash array value: hash[key4][0] ---------";
+
+print hash["key4"][0];
+
+print "--------hash array value ---------";
+
+
+print "-----------------";
+for (var key in hash) {
+    print key;
+    print hash[key];
+    print "--------x---------";
+}

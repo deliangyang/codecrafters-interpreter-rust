@@ -22,14 +22,19 @@ pub enum Stmt {
     Case(ExprType, BlockStmt),
     Default(BlockStmt),
     While(ExprType, BlockStmt),
-    ClassStmt{
+    ClassStmt {
         name: Ident,
         properties: Vec<Stmt>,
     },
-    For{
+    For {
         init: Box<Stmt>,
         conditions: Box<ExprType>,
         step: Box<Stmt>,
+        block: BlockStmt,
+    },
+    ForIn {
+        var: Box<Stmt>,
+        iter: Box<ExprType>,
         block: BlockStmt,
     },
     ClassInit(Ident, Vec<ExprType>),
@@ -45,7 +50,7 @@ impl Display for Stmt {
                     writeln!(f, "{}", stmt)?;
                 }
                 Ok(())
-            },
+            }
             Stmt::Return(e) => write!(f, "return {}", e),
             Stmt::Blank => write!(f, ""),
             Stmt::Function(name, params, body) => {
@@ -61,49 +66,54 @@ impl Display for Stmt {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
-            },
+            }
             Stmt::Switch(e, cases) => {
                 write!(f, "switch {} {{\n", e)?;
                 for stmt in cases {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
-            },
+            }
             Stmt::Case(e, block) => {
                 write!(f, "case {}: \n", e)?;
                 for stmt in block {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 Ok(())
-            },
+            }
             Stmt::Default(block) => {
                 write!(f, "default:\n")?;
                 for stmt in block {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 Ok(())
-            },
+            }
             Stmt::While(expr, block) => {
                 write!(f, "while ({}) {{\n", expr)?;
                 for stmt in block {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
-            },
+            }
             Stmt::ClassStmt { name, properties } => {
                 write!(f, "class {} {{\n", name)?;
                 for stmt in properties {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
-            },
-            Stmt::For{init, conditions, step, block} => {
+            }
+            Stmt::For {
+                init,
+                conditions,
+                step,
+                block,
+            } => {
                 write!(f, "for ({}; {}; {}) {{\n", init, conditions, step)?;
                 for stmt in block {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
-            },
+            }
             Stmt::ClassInit(name, args) => {
                 write!(f, "new {}(", name)?;
                 for (i, arg) in args.iter().enumerate() {
@@ -113,7 +123,14 @@ impl Display for Stmt {
                     write!(f, "{}", arg)?;
                 }
                 write!(f, ")")
-            },
+            }
+            Stmt::ForIn { var, iter, block } => {
+                write!(f, "for ({} in {}) {{\n", var, iter)?;
+                for stmt in block {
+                    writeln!(f, "\t{}", stmt)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -129,6 +146,7 @@ pub enum Literal {
     Bool(bool),
     Index(usize),
     Array(Vec<ExprType>),
+    Hash(Vec<(ExprType, ExprType)>),
     Nil,
 }
 
@@ -180,35 +198,43 @@ impl Display for ExprType {
                 _ => write!(f, "({} {})", t, e),
             },
             ExprType::Ident(v) => write!(f, "{}", v.0),
-            ExprType::Literal(literal) => {
-                match literal {
-                    Literal::Number(n) => {
-                        let inum = (*n as i64) as f64;
-                        if *n > inum {
-                            write!(f, "{}", n)
-                        } else {
-                            write!(f, "{}.0", inum)
+            ExprType::Literal(literal) => match literal {
+                Literal::Number(n) => {
+                    let inum = (*n as i64) as f64;
+                    if *n > inum {
+                        write!(f, "{}", n)
+                    } else {
+                        write!(f, "{}.0", inum)
+                    }
+                }
+                Literal::Index(i) => write!(f, "{}", i),
+                Literal::String(s) => write!(f, "{}", s),
+                Literal::Bool(b) => write!(f, "{}", b),
+                Literal::Nil => write!(f, "nil"),
+                Literal::Array(arr) => {
+                    write!(f, "[")?;
+                    for (i, expr) in arr.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
                         }
-                    },
-                    Literal::Index(i) => write!(f, "{}", i),
-                    Literal::String(s) => write!(f, "{}", s),
-                    Literal::Bool(b) => write!(f, "{}", b),
-                    Literal::Nil => write!(f, "nil"),
-                    Literal::Array(arr) => {
-                        write!(f, "[")?;
-                        for (i, expr) in arr.iter().enumerate() {
-                            if i > 0 {
-                                write!(f, ", ")?;
-                            }
-                            write!(f, "{}", expr)?;
+                        write!(f, "{}", expr)?;
+                    }
+                    write!(f, "]")
+                }
+                Literal::Hash(hash) => {
+                    write!(f, "{{")?;
+                    for (i, (key, value)) in hash.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
                         }
-                        write!(f, "]")
-                    },
+                        write!(f, "{}: {}", key, value)?;
+                    }
+                    write!(f, "}}")
                 }
             },
             ExprType::GroupingExpr(expr) => {
                 write!(f, "(group {})", expr)
-            },
+            }
             ExprType::PrefixExpr(token, expr) => {
                 let op = match token {
                     Token::Minus => "-",
@@ -216,7 +242,7 @@ impl Display for ExprType {
                     _ => panic!("Invalid prefix operator"),
                 };
                 write!(f, "({} {})", op, expr)
-            },
+            }
             ExprType::InfixExpr(left, token, right) => {
                 let op = match token {
                     Token::EqualEqual => "==",
@@ -233,11 +259,16 @@ impl Display for ExprType {
                     _ => panic!("Invalid infix operator"),
                 };
                 write!(f, "({} {} {})", op, left, right)
-            },
+            }
             ExprType::PrintExpr(expr) => {
                 write!(f, "(print {})", expr)
-            },
-            ExprType::If { condition, elseif, then_branch, else_branch } => {
+            }
+            ExprType::If {
+                condition,
+                elseif,
+                then_branch,
+                else_branch,
+            } => {
                 write!(f, "if {} {{\n", condition)?;
                 for stmt in then_branch {
                     writeln!(f, "\t{}", stmt)?;
@@ -258,7 +289,7 @@ impl Display for ExprType {
                     write!(f, "}}")?;
                 }
                 Ok(())
-            },
+            }
             ExprType::Function { params, body } => {
                 write!(f, "fn(")?;
                 for (i, param) in params.iter().enumerate() {
@@ -272,7 +303,7 @@ impl Display for ExprType {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "\n}}\n")
-            },
+            }
             ExprType::Call { callee, args } => {
                 write!(f, "{}(", callee)?;
                 for (i, arg) in args.iter().enumerate() {
@@ -282,7 +313,7 @@ impl Display for ExprType {
                     write!(f, "{}", arg)?;
                 }
                 write!(f, ")")
-            },
+            }
             ExprType::ThisExpr(ident) => write!(f, "this.{}", ident.0),
             ExprType::ClassInit { name, args } => {
                 write!(f, "new {}(", name)?;
@@ -293,8 +324,12 @@ impl Display for ExprType {
                     write!(f, "{}", arg)?;
                 }
                 write!(f, ")")
-            },
-            ExprType::ClassCall { callee, method, args } => {
+            }
+            ExprType::ClassCall {
+                callee,
+                method,
+                args,
+            } => {
                 write!(f, "{}.{}(", callee, method)?;
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
@@ -303,10 +338,10 @@ impl Display for ExprType {
                     write!(f, "{}", arg)?;
                 }
                 write!(f, ")")
-            },
+            }
             ExprType::IndexExpr(left, right) => {
                 write!(f, "{}[{}]", left, right)
-            },
+            }
         }
     }
 }
@@ -320,6 +355,6 @@ pub enum Precedence {
     Star,        // *
     Prefix,      // -X or !X
     Call,        // myFunction(x)
-    Index,       // array[index]
-    Class,      // instance.property
+    Index,       // array[index] hash[index]
+    Class,       // instance.property
 }

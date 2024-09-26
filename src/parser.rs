@@ -116,6 +116,8 @@ impl<'a> Parser<'a> {
         if self.current == Token::Semicolon {
             self.next();
             return Some(Stmt::Var(ident, ExprType::Literal(Literal::Nil)));
+        } else if self.current == Token::In {
+            return Some(Stmt::Var(ident, ExprType::Literal(Literal::Nil)));
         }
         self.next();
         let expr = self.parse_expr(Precedence::Lowest).unwrap();
@@ -146,6 +148,22 @@ impl<'a> Parser<'a> {
                 return None;
             }
         };
+        if self.current == Token::In {
+            self.next();
+            let expr = self.parse_expr(Precedence::Lowest).unwrap();
+            if self.current != Token::RightParen {
+                self.lex
+                    .log_error(self.current.clone(), "Expect ')' after for condition");
+                return None;
+            }
+            self.next();
+            let block = self.parse_block().unwrap();
+            return Some(Stmt::ForIn {
+                var: Box::new(init),
+                iter: Box::new(expr),
+                block: block,
+            });
+        }
         let condition = self.parse_expr(Precedence::Lowest).unwrap();
         if self.current != Token::Semicolon {
             self.lex
@@ -476,6 +494,7 @@ impl<'a> Parser<'a> {
                 self.next();
                 Some(ExprType::Literal(Literal::Array(elements)))
             }
+            Token::LeftBrace => self.parse_hash_literal(),
             Token::Nil => {
                 self.next();
                 Some(ExprType::Literal(Literal::Nil))
@@ -577,6 +596,28 @@ impl<'a> Parser<'a> {
         }
 
         left
+    }
+
+
+    fn parse_hash_literal(&mut self) -> Option<ExprType> {
+        self.next();
+        let mut hash = vec![];
+        while self.current != Token::RightBrace {
+            let key = self.parse_expr(Precedence::Lowest).unwrap();
+            if self.current != Token::Colon {
+                self.lex
+                    .log_error(self.current.clone(), "Expect ':' after hash key");
+                return None;
+            }
+            self.next();
+            let value = self.parse_expr(Precedence::Lowest).unwrap();
+            if self.current == Token::Comma {
+                self.next();
+            }
+            hash.push((key, value));
+        }
+        self.next();
+        Some(ExprType::Literal(Literal::Hash(hash)))
     }
 
     fn parse_index_expr(&mut self, left: ExprType) -> Option<ExprType> {
