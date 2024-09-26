@@ -1,6 +1,12 @@
 use std::{cell::RefCell, collections::HashMap, process::exit, rc::Rc};
 
-use crate::{ast::{ExprType, Literal, Progam, Stmt}, builtins, envs::Env, objects::Object, token::Token};
+use crate::{
+    ast::{ExprType, Literal, Progam, Stmt},
+    builtins,
+    envs::Env,
+    objects::Object,
+    token::Token,
+};
 
 pub struct Evaluator {
     output: bool,
@@ -11,12 +17,12 @@ pub struct Evaluator {
 
 impl Evaluator {
     pub fn new(ast: Progam, output: bool) -> Self {
-        Self { 
+        Self {
             ast: ast,
             builtins: builtins::new_builtins(),
             output: output,
             envs: Rc::new(RefCell::new(Env::new())),
-         }
+        }
     }
 
     pub fn evaluate(&mut self) {
@@ -30,6 +36,7 @@ impl Evaluator {
             Stmt::Var(ident, expr) => {
                 let name = ident.0.clone();
                 let object = self.evaluate_expr(expr).unwrap();
+                println!("{:?} {:?} {:?}", name, object, expr);
                 self.envs.borrow_mut().set_store(name, &object);
             }
             Stmt::Expr(expr) => {
@@ -37,7 +44,7 @@ impl Evaluator {
                 if self.output {
                     println!("{}", object);
                 }
-            },
+            }
             Stmt::Block(stmts) => {
                 let current_env = Rc::clone(&self.envs);
                 let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
@@ -52,13 +59,13 @@ impl Evaluator {
                 if self.output {
                     println!("{}", object);
                 }
-            },
+            }
             Stmt::Function(ident, args, body) => {
                 let name = ident.0.clone();
                 let object = Object::Function(args.clone(), body.clone());
                 self.envs.borrow_mut().set_store(name, &object);
-            },
-            Stmt::Blank => {},
+            }
+            Stmt::Blank => {}
             Stmt::Switch(expr, cases) => {
                 let result = self.evaluate_expr(expr).unwrap();
                 for stmt in cases {
@@ -102,9 +109,16 @@ impl Evaluator {
             }
             Stmt::ClassStmt { name, properties } => {
                 let object = Object::Class(name.to_string().clone(), properties.clone());
-                self.envs.borrow_mut().set_store(name.to_string().clone(), &object);
+                self.envs
+                    .borrow_mut()
+                    .set(name.to_string().clone(), &object);
             }
-            Stmt::For { init, conditions, step, block } => self.evaluate_for(init, conditions, step, block),
+            Stmt::For {
+                init,
+                conditions,
+                step,
+                block,
+            } => self.evaluate_for(init, conditions, step, block),
             _ => unimplemented!(),
         }
     }
@@ -191,7 +205,7 @@ impl Evaluator {
                                 return Some(Object::Number(left - right));
                             }
                         }
-                       
+
                         return None;
                     }
                     Token::Star => {
@@ -218,13 +232,17 @@ impl Evaluator {
                     match left.as_ref() {
                         ExprType::Ident(ident) => {
                             let name = ident.0.clone();
-                            // println!("{:?} {:?} {:?}", left, op, right);
                             let object = self.evaluate_expr(right).unwrap();
                             self.envs.borrow_mut().set(name, &object);
                             // println!("{}", object);
                             return Some(object);
                         }
-                        _ => {},
+                        ExprType::ThisExpr(ident) => {
+                            let object = self.evaluate_expr(right).unwrap();
+                            self.envs.borrow_mut().set(ident.0.clone(), &object);
+                            return Some(object);
+                        }
+                        _ => {}
                     }
                 }
 
@@ -236,7 +254,7 @@ impl Evaluator {
                             if let Object::Number(right) = right.unwrap() {
                                 return Some(Object::Boolean(left == right));
                             }
-                        }else if let Object::Boolean(left) = left.clone().unwrap() {
+                        } else if let Object::Boolean(left) = left.clone().unwrap() {
                             if let Object::Boolean(right) = right.unwrap() {
                                 return Some(Object::Boolean(left == right));
                             }
@@ -332,9 +350,9 @@ impl Evaluator {
                         exit(70);
                     }
                     _ => {
-                        println!("{:?} {:?} {:?}", left, op, right);
+                        println!("not found {:?} {:?} {:?}", left, op, right);
                         unimplemented!()
-                    },
+                    }
                 }
             }
             ExprType::PrintExpr(expr) => {
@@ -342,7 +360,12 @@ impl Evaluator {
                 println!("{}", expr);
                 return Some(Object::Nil);
             }
-            ExprType::If { condition, elseif, then_branch, else_branch } => {
+            ExprType::If {
+                condition,
+                elseif,
+                then_branch,
+                else_branch,
+            } => {
                 let condition = self.evaluate_expr(condition).unwrap();
                 if let Object::Boolean(condition) = condition {
                     if condition {
@@ -391,8 +414,8 @@ impl Evaluator {
                             Stmt::Return(expr) => {
                                 result = self.evaluate_expr(&expr);
                                 break;
-                            },
-                            Stmt::Blank => {},
+                            }
+                            Stmt::Blank => {}
                             _ => {
                                 self.evaluate_stmt(&stmt);
                             }
@@ -404,21 +427,25 @@ impl Evaluator {
                 return result;
             }
             ExprType::ClassInit { name, args } => {
-                println!("{:?} {:?}", name, args);
+                // println!("{:?} {:?}", name, args);
                 let class_name = name.clone().to_string();
                 let class = self.envs.borrow_mut().get(class_name).unwrap();
-                if let Object::Class(_, properties) = class {
+
+                if let Object::Class(_, properties) = class.clone() {
                     let current_env = Rc::clone(&self.envs);
                     let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                     self.envs = Rc::new(RefCell::new(pre_envs));
-                    let init_func = properties.iter().find(|x| {
-                        if let Stmt::Function(ident, _, _) = x {
-                            if ident.0 == "init" {
-                                return true;
+                    let init_func = properties
+                        .iter()
+                        .find(|x| {
+                            if let Stmt::Function(ident, _, _) = x {
+                                if ident.0 == "init" {
+                                    return true;
+                                }
                             }
-                        }
-                        false
-                    }).unwrap();
+                            false
+                        })
+                        .unwrap();
                     if let Stmt::Function(_, params, block) = init_func {
                         for (i, arg) in args.iter().enumerate() {
                             let arg: Object = self.evaluate_expr(&arg).unwrap();
@@ -431,15 +458,42 @@ impl Evaluator {
                     }
                     self.envs = current_env;
                 }
-                
+
+                return Some(class.clone());
+            }
+            ExprType::ClassCall {
+                callee,
+                method,
+                args,
+            } => {
+                let class = self.envs.borrow_mut().get(callee.to_string()).unwrap();
+                if let Object::Class(_, stmts) = class {
+                    let current_env = Rc::clone(&self.envs);
+                    let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                    self.envs = Rc::new(RefCell::new(pre_envs));
+                    for stmt in stmts {
+                        match stmt {
+                            Stmt::Function(ident, _, block) => {
+                                if ident.0 == method.to_string() {
+                                    for stmt in block {
+                                        self.evaluate_stmt(&stmt);
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    self.envs = current_env;
+                }
+                println!("------------>{:?} {:?} {:?}", callee, method, args);
                 return Some(Object::Nil);
             }
-            ExprType::ClassCall { callee, method, args } => {
-                println!("{:?} {:?} {:?}", callee, method, args);
-                return Some(Object::Nil);
+            ExprType::ThisExpr(ident) => {
+                let object = self.envs.borrow_mut().get(ident.0.clone()).unwrap();
+                return Some(object.clone());
             }
             _ => {
-                println!("{:?}", expr);
+                println!("not found2 {:?}", expr);
                 return Some(Object::Nil);
             }
         }
