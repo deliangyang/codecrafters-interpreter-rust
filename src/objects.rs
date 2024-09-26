@@ -13,6 +13,11 @@ pub enum Object {
     Builtin(i32, BuiltinFunc),
     Function(Vec<ast::Ident>, ast::BlockStmt),
     Class(String, Vec<ast::Stmt>),
+    ClassInstance{
+        name: String,
+        class: Rc<RefCell<Object>>,
+        properties: Rc<RefCell<HashMap<String, Object>>>,
+    }
 }
 
 impl Display for Object {
@@ -32,7 +37,7 @@ impl Display for Object {
                     params_str.push_str(&param.0);
                 }
                 write!(f, "fn({}) {:?}", params_str, body)
-            },
+            }
             Object::Class(name, properties) => {
                 write!(f, "class {} {{\n", name)?;
                 for prop in properties {
@@ -40,6 +45,13 @@ impl Display for Object {
                 }
                 write!(f, "}}")
             },
+            Object::ClassInstance{name, class, properties} => {
+                write!(f, "instance of class {} {{\n", name)?;
+                for (key, value) in properties.borrow().iter() {
+                    writeln!(f, "\t{}: {}", key, value)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }

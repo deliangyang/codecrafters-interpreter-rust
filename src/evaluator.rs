@@ -187,46 +187,6 @@ impl Evaluator {
                     _ => unimplemented!(),
                 }
             }
-            ExprType::BinaryExpr(left, op, right) => {
-                let left = self.evaluate_expr(left).unwrap();
-                let right = self.evaluate_expr(right).unwrap();
-                match op {
-                    Token::Plus => {
-                        if let Object::Number(left) = left {
-                            if let Object::Number(right) = right {
-                                return Some(Object::Number(left + right));
-                            }
-                        }
-                        return None;
-                    }
-                    Token::Minus => {
-                        if let Object::Number(left) = left {
-                            if let Object::Number(right) = right {
-                                return Some(Object::Number(left - right));
-                            }
-                        }
-
-                        return None;
-                    }
-                    Token::Star => {
-                        if let Object::Number(left) = left {
-                            if let Object::Number(right) = right {
-                                return Some(Object::Number(left * right));
-                            }
-                        }
-                        return None;
-                    }
-                    Token::Slash => {
-                        if let Object::Number(left) = left {
-                            if let Object::Number(right) = right {
-                                return Some(Object::Number(left / right));
-                            }
-                        }
-                        return None;
-                    }
-                    _ => unimplemented!(),
-                }
-            }
             ExprType::InfixExpr(left, op, right) => {
                 if let Token::Equal = op {
                     match left.as_ref() {
@@ -459,7 +419,11 @@ impl Evaluator {
                     self.envs = current_env;
                 }
 
-                return Some(class.clone());
+                return Some(Object::ClassInstance{
+                    name: name.clone().to_string(),
+                    class: Rc::new(RefCell::new(class.clone())),
+                    properties: Rc::new(RefCell::new(HashMap::new())),
+                });
             }
             ExprType::ClassCall {
                 callee,
@@ -485,7 +449,7 @@ impl Evaluator {
                     }
                     self.envs = current_env;
                 }
-                println!("------------>{:?} {:?} {:?}", callee, method, args);
+                println!("------------>{} {:?} {:?}", callee, method, args);
                 return Some(Object::Nil);
             }
             ExprType::ThisExpr(ident) => {

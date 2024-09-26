@@ -137,7 +137,6 @@ pub enum ExprType {
     Literal(Literal),
     GroupingExpr(Box<ExprType>),
     UnaryExpr(Token, Box<ExprType>), // prefix unary parse
-    BinaryExpr(Box<ExprType>, Token, Box<ExprType>), // infix binary parse
     PrefixExpr(Token, Box<ExprType>),
     InfixExpr(Box<ExprType>, Token, Box<ExprType>),
     PrintExpr(Box<ExprType>),
@@ -176,13 +175,6 @@ impl Display for ExprType {
                 Token::Slash => write!(f, "(/ {})", e),
                 Token::And => write!(f, "(+ {})", e),
                 _ => write!(f, "({} {})", t, e),
-            },
-            ExprType::BinaryExpr(l, t, r) => match *t {
-                Token::Star => write!(f, "(* {} {})", l, r),
-                Token::Slash => write!(f, "(/ {} {})", l, r),
-                Token::Minus => write!(f, "(- {} {})", l, r),
-                Token::Plus => write!(f, "(+ {} {})", l, r),
-                _ => write!(f, "({} {} {})", l, t, r),
             },
             ExprType::Ident(v) => write!(f, "{}", v.0),
             ExprType::Literal(literal) => {
