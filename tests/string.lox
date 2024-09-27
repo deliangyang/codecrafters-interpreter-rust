@@ -27,4 +27,4 @@ fun test2(a) {
 println(typeis(test2("true")));
 var s = 'aa\ta\'b\tc\rd\naaaaa';
 println(s);
-println("aa\t\'a\"v\tc\rd\naaaaa")
+println("aa\t\''a\"v\tc\rd\naaaaa")

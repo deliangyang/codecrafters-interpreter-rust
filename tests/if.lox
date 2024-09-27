@@ -1,0 +1,16 @@
+
+var x = 3;
+
+if (x == 3) {
+    println("x is 3");
+} else {
+    println("x is not 3");
+}
+
+var y = '3';
+
+if (y == '3') {
+    println("y is 3");
+} else {
+    println("y is not 3");
+}

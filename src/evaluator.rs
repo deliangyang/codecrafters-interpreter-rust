@@ -272,7 +272,9 @@ impl Evaluator {
                                     let index = self.evaluate_expr(expr).unwrap();
                                     let object = self.evaluate_expr(right).unwrap();
                                     hash.borrow_mut().insert(index, object.clone());
-                                    self.envs.borrow_mut().set(ident.0.clone(), &Object::Hash(hash.clone()));
+                                    self.envs
+                                        .borrow_mut()
+                                        .set(ident.0.clone(), &Object::Hash(hash.clone()));
                                     return Some(object);
                                 }
                             }
@@ -410,6 +412,14 @@ impl Evaluator {
                         }
                         exit(70);
                     }
+                    Token::Or => {
+                        if let Object::Boolean(left) = left.unwrap() {
+                            if let Object::Boolean(right) = right.unwrap() {
+                                return Some(Object::Boolean(left || right));
+                            }
+                        }
+                        exit(70);
+                    }
                     _ => {
                         println!("not found {:?} {:?} {:?}", left, op, right);
                         unimplemented!()
@@ -493,7 +503,42 @@ impl Evaluator {
             ExprType::Function { params, body } => {
                 return Some(Object::Function(params.clone(), body.clone()));
             }
+            ExprType::ThisCall { method, args } => {
+                let class = self.envs.borrow_mut().get_current_class().unwrap();
+                if let Object::ClassInstance {
+                    name: _,
+                    fields: _,
+                    ref properties,
+                } = class.clone()
+                {
+                    let current_env = Rc::clone(&self.envs);
+                    let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                    self.envs = Rc::new(RefCell::new(pre_envs));
+
+                    self.envs.borrow_mut().set_current_class(class.clone());
+
+                    if let Object::Function(params, stmts) =
+                        properties.borrow().get(&method.0).unwrap()
+                    {
+                        for (i, param) in params.iter().enumerate() {
+                            let arg: Object = self.evaluate_expr(&args[i]).unwrap();
+                            self.envs.borrow_mut().set_store(param.0.clone(), &arg);
+                        }
+                        for stmt in stmts {
+                            let result = self.evaluate_stmt(stmt);
+                            if result.is_some() {
+                                self.envs = current_env;
+                                return result;
+                            }
+                        }
+                    }
+                    self.envs = current_env;
+                    self.envs.borrow_mut().reset_current_class();
+                }
+                None
+            }
             ExprType::Call { callee, args } => {
+                println!("{:?} {:?}", callee, args);
                 let callee = self.evaluate_expr(&callee);
                 match callee {
                     Some(Object::Builtin(name, argc, fun)) => {
@@ -503,7 +548,10 @@ impl Evaluator {
                         }
                         let real_argc = args_vec.len() as i32;
                         if argc != -1 && real_argc != argc {
-                            println!("fun {}: Expected {} arguments but got {}.", name, argc, real_argc);
+                            println!(
+                                "fun {}: Expected {} arguments but got {}.",
+                                name, argc, real_argc
+                            );
                             exit(70);
                         }
                         return Some(fun(args_vec));
@@ -525,7 +573,7 @@ impl Evaluator {
                         }
                         self.envs = current_env;
                     }
-                    _ => unimplemented!("not found {:?}", callee),
+                    _ => unimplemented!("not found {:?}({:?})", callee, args),
                 }
 
                 None
@@ -685,7 +733,9 @@ impl Evaluator {
             }
             Object::String(s) => {
                 if let Object::Number(index) = index {
-                    return Some(Object::String(s.chars().nth(index as usize).unwrap().to_string()));
+                    return Some(Object::String(
+                        s.chars().nth(index as usize).unwrap().to_string(),
+                    ));
                 } else if let Object::Index(idx) = index {
                     return Some(Object::String(s.chars().nth(idx).unwrap().to_string()));
                 } else if let Object::String(index) = index {
@@ -693,7 +743,10 @@ impl Evaluator {
                 }
                 return Some(Object::Nil);
             }
-            _ => unimplemented!("index only support array, hash and string. not support {:?}", left),
+            _ => unimplemented!(
+                "index only support array, hash and string. not support {:?}",
+                left
+            ),
         }
     }
 }

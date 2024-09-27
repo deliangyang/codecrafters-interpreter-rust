@@ -410,7 +410,7 @@ impl<'a> Parser<'a> {
 
     fn token_precedence(&self, token: Token) -> Precedence {
         match token {
-            Token::And => Precedence::And,
+            Token::And | Token::Or => Precedence::And,
             Token::EqualEqual | Token::BangEqual | Token::Equal => Precedence::Equals,
             Token::Less | Token::LessEqual | Token::Greater | Token::GreaterEqual => {
                 Precedence::LessGreater
@@ -428,7 +428,7 @@ impl<'a> Parser<'a> {
         self.next();
         let value = self.parse_expr(Precedence::Lowest);
         if self.current != Token::Semicolon {
-            self.lex.log_error(self.current.clone(), "Expect semicolon");
+            self.lex.log_error(self.current.clone(), format!("Expect ';' after return, {:?}", self.current).as_str());
             return None;
         }
         self.next();
@@ -543,6 +543,14 @@ impl<'a> Parser<'a> {
                 self.next();
                 let ident = self.parse_ident().unwrap();
                 self.next();
+                if self.current == Token::LeftParen {
+                    self.next();
+                    let args = self.parse_args_list();
+                    return Some(ExprType::ThisCall {
+                        method: ident,
+                        args: args.unwrap(),
+                    });
+                }
                 Some(ExprType::ThisExpr(ident))
             }
             Token::If => self.parse_if(),
@@ -591,6 +599,7 @@ impl<'a> Parser<'a> {
                 | Token::LessEqual
                 | Token::Greater
                 | Token::And
+                | Token::Or
                 | Token::GreaterEqual => {
                     left = self.parse_infix_expr(left.unwrap());
                 }
@@ -633,6 +642,7 @@ impl<'a> Parser<'a> {
             }
         }
 
+        // println!("left: {:?}", left);
         left
     }
 

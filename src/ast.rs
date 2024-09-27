@@ -190,6 +190,10 @@ pub enum ExprType {
         callee: Ident,
         prop: Ident,
     },
+    ThisCall {
+        method: Ident,
+        args: Vec<ExprType>,
+    },
 }
 
 impl Display for ExprType {
@@ -241,6 +245,16 @@ impl Display for ExprType {
             ExprType::GroupingExpr(expr) => {
                 write!(f, "(group {})", expr)
             }
+            ExprType::ThisCall { method, args } => {
+                write!(f, "this.{}(", method)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", arg)?;
+                }
+                write!(f, ")")
+            }
             ExprType::PrefixExpr(token, expr) => {
                 let op = match token {
                     Token::Minus => "-",
@@ -263,6 +277,7 @@ impl Display for ExprType {
                     Token::Slash => "/",
                     Token::Equal => "=",
                     Token::And => "&&",
+                    Token::Or => "||",
                     _ => panic!("Invalid infix operator"),
                 };
                 write!(f, "({} {} {})", op, left, right)

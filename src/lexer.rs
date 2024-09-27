@@ -107,6 +107,14 @@ impl<'a> Lexing<'a> {
                     }
                     return Token::Bang;
                 }
+                '|' => {
+                    self.get_char();
+                    if self.peek() == '|' {
+                        self.get_char();
+                        return Token::Or;
+                    }
+                    return Token::BitOr;
+                }
                 '&' => {
                     self.get_char();
                     if self.peek() == '&' {
@@ -135,7 +143,7 @@ impl<'a> Lexing<'a> {
                     let mut s = String::new();
                     self.get_char();
                     while self.l > self.position {
-                        let c = self.peek();
+                        let mut c = self.peek();
                         if c == '\\' {
                             self.get_char();
                             let c = self.get_char();
@@ -166,6 +174,7 @@ impl<'a> Lexing<'a> {
                                 );
                             }
                         }
+                        c = self.peek();
                         if c == '\'' {
                             self.get_char();
                             return Token::String(s);
@@ -182,7 +191,7 @@ impl<'a> Lexing<'a> {
                     let mut s = String::new();
                     self.get_char();
                     while self.l > self.position {
-                        let c = self.peek();
+                        let mut c = self.peek();
                         if c == '\\' {
                             self.get_char();
                             let c = self.get_char();
@@ -213,6 +222,7 @@ impl<'a> Lexing<'a> {
                                 );
                             }
                         }
+                        c = self.peek();
                         if c == '"' {
                             self.get_char();
                             return Token::String(s);

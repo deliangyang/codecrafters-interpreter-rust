@@ -1,81 +1,124 @@
-fun json_decode(json) {
-    json = trim(json);
-    if (json == "null") {
-        return nil;
-    }
-    if (json == "true") {
-        return true;
-    }
-    if (json == "false") {
-        return false;
-    }
-    if (json[0] == '"') {
-        return trim(substr(json, 1, len(json) - 1));
-    }
-    if (json[0] == '[') {
-        var arr = [];
-        var i = 1;
-        while (i < len(json) - 1) {
-            var j = i;
-            while (json[j] == ' ') {
-                j = j + 1;
-            }
-            while (json[j] != ',' && json[j] != ']') {
-                j = j + 1;
-            }
-            var value = json_decode(substr(json, i, j));
-            arr = append(arr, value);
-            i = j + 1;
-        }
-        return arr;
+
+class Json
+{
+    var json;
+    var offset;
+    var l;
+
+    fun init(json) {
+        this.json = json;
+        this.offset = 0;
+        this.l = len(json);
     }
 
-    if (json[0] == '{') {
-        var obj = {};
-        var i = 1;
-        while (i < len(json) - 1) {
-            var j = i;
-            while (json[j] == ' ') {
-                j = j + 1;
-            }
-            while (json[j] != ':') {
-                j = j + 1;
-            }
-           
-            var key = json_decode(substr(json, i, j));
-            j = j + 1;
-            i = j;
-            while (json[j] != ',' && json[j] != '}') {
-                j = j + 1;
-            }
-            var value = json_decode(substr(json, i, j));
-            obj[key] = value;
-            i = j + 1;
+    fun decode() {
+        this.skip_whitespace();
+        println(this.json[this.offset]);
+        if (this.json[this.offset] == 'n') {
+            return this.parse_null();
+        } else if (this.json[this.offset] == 't') {
+            return this.parse_true();
+        } else if (this.json[this.offset] == 'f') {
+            return this.parse_false();
+        } else if (this.json[this.offset] == '"') {
+            return this.parse_string();
+        } else if (this.json[this.offset] == '[') {
+            return this.parse_array();
+        } else if (this.json[this.offset] == '{') {
+            return this.parse_object();
         }
-        return obj;
     }
-    if (is_number(json)) {
-        return intval(json);
+
+    fun parse_array() {
+        var array = [];
+        this.offset = this.offset + 1;
+        this.skip_whitespace();
+        while (this.json[this.offset] != ']') {
+            array = append(array, this.decode());
+            this.skip_whitespace();
+            if (this.json[this.offset] == ',') {
+                this.offset = this.offset + 1;
+                this.skip_whitespace();
+            }
+        }
+        this.offset = this.offset + 1;
+        return array;
     }
-    json = trim(json);
-    return strval(json);
+
+    fun parse_object() {
+        var object = {};
+        this.offset = this.offset + 1;
+        this.skip_whitespace();
+        while (this.json[this.offset] != '}') {
+            var key = this.parse_string();
+            this.skip_whitespace();
+            this.offset = this.offset + 1;
+            this.skip_whitespace();
+            object[key] = this.decode();
+            this.skip_whitespace();
+            if (this.json[this.offset] == ',') {
+                this.offset = this.offset + 1;
+                this.skip_whitespace();
+            }
+        }
+        this.offset = this.offset + 1;
+        return object;
+    }
+
+    fun skip_whitespace() {
+        while (json[this.offset] == ' ' || json[this.offset] == '\n' || json[this.offset] == '\t' || json[this.offset] == '\r') {
+            this.offset = this.offset + 1;
+        }
+    }
+
+    fun parse_string() {
+        var i = this.offset;
+        while (json[i] != '"') {
+            i = i + 1;
+        }
+        var value = substr(json, this.offset, i);
+        this.offset = i + 1;
+        return value;
+    }
+
+    fun parse_null() {
+        var value = substr(json, this.offset, 4);
+        this.offset = this.offset + 4;
+        return value;
+    }
+
+    fun parse_true() {
+        var value = substr(json, this.offset, 4);
+        this.offset = this.offset + 4;
+        return value;
+    }
+
+    fun parse_false() {
+        var value = substr(json, this.offset, 5);
+        this.offset = this.offset + 5;
+        return value;
+    }
+
 }
 
+var json = new Json('nil');
+println(json.decode());
 
-var x = json_decode('nil');
-println(x == 'nil');
-println(typeis(x));
-println(typeis(json_decode('null')));
-println(typeis(json_decode("null")));
-println(typeis(json_decode("true")));
-println(typeis(json_decode("false")));
-println(typeis(json_decode('"hello"')));
 
-println(typeis(json_decode("[1, 2, 3, 4, 5]")));
-println(typeis(json_decode('["hello", "world", "json"]')));
-
-var result = json_decode('{"key": "value", "key2": 1}');
-println(result["key"]);
+// var x = json_decode('nil');
+// println(x == 'nil');
+// println(typeis(x));
+// println(typeis(json_decode('null')));
+// println(typeis(json_decode("null")));
+// println(typeis(json_decode("true")));
+// println(typeis(json_decode("false")));
+// println(typeis(json_decode('"hello"')));
+// 
+// println(typeis(json_decode("[1, 2, 3, 4, 5]")));
+// println(typeis(json_decode('["hello", "world", "json"]')));
+// 
+// var result = json_decode('{"key": "value", "key2": 1}');
+// println(result["key"]);
 
 //var result = json_decode('{"key": "value", "key2": 1, "key3": {"key4": "value4"}, "key4": [1, 2, 3, 4, 5]}');
 //println(result);

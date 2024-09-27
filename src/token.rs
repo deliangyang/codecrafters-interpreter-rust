@@ -16,7 +16,7 @@ pub enum Token {
     Fun,
     If,
     Nil,
-    Or,
+    Or,     // or ||
     Print,
     Return,
     Super,
@@ -52,6 +52,7 @@ pub enum Token {
     Colon, // :
 
     BitAnd, // &
+    BitOr, // |
 
     EqualEqual, // ==
     Bang,       // !
@@ -118,6 +119,7 @@ impl Display for Token {
             Token::RightBracket => write!(f, "RIGHT_BRACKET ] null"),
             Token::In => write!(f, "IN in null"),
             Token::Import => write!(f, "IMPORT import null"),
+            Token::BitOr => write!(f, "BIT_OR | null"),
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;
