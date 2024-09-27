@@ -5,7 +5,7 @@ use std::fmt::Display;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Var,
-    And,
+    And,       // and &&
     Class,
     New,
     In,
@@ -51,6 +51,8 @@ pub enum Token {
     Dot,   // .
     Colon, // :
 
+    BitAnd, // &
+
     EqualEqual, // ==
     Bang,       // !
     BangEqual,  // !=
@@ -69,6 +71,7 @@ impl Display for Token {
         match self {
             Token::Var => write!(f, "VAR var null"),
             Token::And => write!(f, "AND and null"),
+            Token::BitAnd => write!(f, "BIT_ADD & null"),
             Token::Class => write!(f, "CLASS class null"),
             Token::Else => write!(f, "ELSE else null"),
             Token::False => write!(f, "FALSE false null"),

@@ -161,7 +161,7 @@ pub enum ExprType {
     UnaryExpr(Token, Box<ExprType>), // prefix unary parse
     PrefixExpr(Token, Box<ExprType>),
     InfixExpr(Box<ExprType>, Token, Box<ExprType>),
-    PrintExpr(Box<ExprType>),
+    PrintExpr(Box<Vec<ExprType>>),
     IndexExpr(Box<ExprType>, Box<ExprType>),
     If {
         condition: Box<ExprType>,
@@ -258,11 +258,17 @@ impl Display for ExprType {
                     Token::Star => "*",
                     Token::Slash => "/",
                     Token::Equal => "=",
+                    Token::And => "&&",
                     _ => panic!("Invalid infix operator"),
                 };
                 write!(f, "({} {} {})", op, left, right)
             }
             ExprType::PrintExpr(expr) => {
+                let expr = expr
+                    .iter()
+                    .map(|e| format!("{}", e))
+                    .collect::<Vec<String>>()
+                    .join(", ");
                 write!(f, "(print {})", expr)
             }
             ExprType::If {
@@ -351,6 +357,7 @@ impl Display for ExprType {
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
     Lowest,
+    And,        // &&
     Equals,      // ==
     LessGreater, // > or <
     Plus,        // +

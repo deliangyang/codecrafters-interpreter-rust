@@ -31,7 +31,7 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_stmt(&mut self, stmt: &Stmt) {
+    fn evaluate_stmt(&mut self, stmt: &Stmt) -> Option<Object> {
         match stmt {
             Stmt::Var(ident, expr) => {
                 let name = ident.0.clone();
@@ -40,8 +40,8 @@ impl Evaluator {
             }
             Stmt::Expr(expr) => {
                 let object = self.evaluate_expr(expr).unwrap();
-                if self.output {
-                    println!("{}", object);
+                if let Object::ReturnValue(obj) = object {
+                    return Some(*obj);
                 }
             }
             Stmt::Block(stmts) => {
@@ -49,7 +49,20 @@ impl Evaluator {
                 let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                 self.envs = Rc::new(RefCell::new(pre_envs));
                 for stmt in stmts {
-                    self.evaluate_stmt(stmt);
+                    match stmt {
+                        Stmt::Return(expr) => {
+                            let object = self.evaluate_expr(expr).unwrap();
+                            self.envs = current_env;
+                            return Some(Object::ReturnValue(Box::new(object)));
+                        }
+                        _ => {
+                            let result = self.evaluate_stmt(stmt);
+                            if result.is_some() {
+                                self.envs = current_env;
+                                return result;
+                            }
+                        }
+                    }
                 }
                 self.envs = current_env;
             }
@@ -73,14 +86,20 @@ impl Evaluator {
                             let case = self.evaluate_expr(expr).unwrap();
                             if case == result {
                                 for stmt in block {
-                                    self.evaluate_stmt(stmt);
+                                    let result = self.evaluate_stmt(stmt);
+                                    if result.is_some() {
+                                        return result;
+                                    }
                                 }
                                 break;
                             }
                         }
                         Stmt::Default(block) => {
                             for stmt in block {
-                                self.evaluate_stmt(stmt);
+                                let result = self.evaluate_stmt(stmt);
+                                if result.is_some() {
+                                    return result;
+                                }
                             }
                         }
                         _ => unimplemented!(),
@@ -97,7 +116,11 @@ impl Evaluator {
                             let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                             self.envs = Rc::new(RefCell::new(pre_envs));
                             for stmt in block {
-                                self.evaluate_stmt(stmt);
+                                let result = self.evaluate_stmt(stmt);
+                                if result.is_some() {
+                                    self.envs = current_env;
+                                    return result;
+                                }
                             }
                             self.envs = current_env;
                         } else {
@@ -124,24 +147,27 @@ impl Evaluator {
                     Stmt::Var(ident, _) => ident,
                     _ => unimplemented!(),
                 };
-                if let Object::Hash(hash) = iter {
-                    for (key, _) in hash {
+                if let Object::Hash(ref hash) = iter {
+                    for (key, _) in hash.borrow().iter() {
                         let current_env = Rc::clone(&self.envs);
                         let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                         self.envs = Rc::new(RefCell::new(pre_envs));
                         self.envs.borrow_mut().set(ident.0.clone(), &key);
                         for stmt in block {
-                            self.evaluate_stmt(stmt);
+                            let result = self.evaluate_stmt(stmt);
+                            if result.is_some() {
+                                self.envs = current_env;
+                                return result;
+                            }
                         }
                         self.envs = current_env;
                     }
                 }
             }
-            Stmt::Import(_) => {
-                
-            }
+            Stmt::Import(_) => {}
             _ => unimplemented!(),
         }
+        None
     }
 
     fn evaluate_for(&mut self, init: &Stmt, conditions: &ExprType, step: &Stmt, block: &Vec<Stmt>) {
@@ -187,7 +213,7 @@ impl Evaluator {
                         let value = self.evaluate_expr(value).unwrap();
                         hash_map.insert(key, value);
                     }
-                    Some(Object::Hash(hash_map))
+                    Some(Object::Hash(Rc::new(RefCell::new(hash_map))))
                 }
                 Literal::Index(index) => Some(Object::Index(*index)),
             },
@@ -233,6 +259,22 @@ impl Evaluator {
                             let object = self.evaluate_expr(right).unwrap();
                             self.envs.borrow_mut().set(name, &object);
                             return Some(object);
+                        }
+                        ExprType::IndexExpr(ident, expr) => {
+                            if let ExprType::Ident(ident) = ident.as_ref() {
+                                let hash = self.envs.borrow_mut().get(ident.0.clone());
+                                if hash.is_none() {
+                                    panic!("not found {:?}", ident);
+                                }
+                                let hash_object = hash.unwrap();
+                                if let Object::Hash(ref hash) = hash_object {
+                                    let index = self.evaluate_expr(expr).unwrap();
+                                    let object = self.evaluate_expr(right).unwrap();
+                                    hash.borrow_mut().insert(index, object.clone());
+                                    self.envs.borrow_mut().set(ident.0.clone(), &Object::Hash(hash.clone()));
+                                    return Some(object);
+                                }
+                            }
                         }
                         ExprType::ThisExpr(ident) => {
                             let object = self.envs.borrow_mut().get_current_class().unwrap();
@@ -355,6 +397,14 @@ impl Evaluator {
                         }
                         exit(70);
                     }
+                    Token::And => {
+                        if let Object::Boolean(left) = left.unwrap() {
+                            if let Object::Boolean(right) = right.unwrap() {
+                                return Some(Object::Boolean(left && right));
+                            }
+                        }
+                        exit(70);
+                    }
                     _ => {
                         println!("not found {:?} {:?} {:?}", left, op, right);
                         unimplemented!()
@@ -362,8 +412,10 @@ impl Evaluator {
                 }
             }
             ExprType::PrintExpr(expr) => {
-                let expr = self.evaluate_expr(expr).unwrap();
-                println!("{}", expr);
+                for expr in expr.iter() {
+                    let object = self.evaluate_expr(expr).unwrap();
+                    print!("{}", object);
+                }
                 return Some(Object::Nil);
             }
             ExprType::If {
@@ -376,7 +428,15 @@ impl Evaluator {
                 if let Object::Boolean(condition) = condition {
                     if condition {
                         for stmt in then_branch {
-                            self.evaluate_stmt(stmt);
+                            match stmt {
+                                Stmt::Return(expr) => {
+                                    let object = self.evaluate_expr(expr).unwrap();
+                                    return Some(Object::ReturnValue(Box::new(object)));
+                                }
+                                _ => {
+                                    self.evaluate_stmt(stmt);
+                                }
+                            }
                         }
                     } else {
                         let mut condition = false;
@@ -385,7 +445,15 @@ impl Evaluator {
                             if let Object::Boolean(cond) = cond {
                                 if cond {
                                     for stmt in block {
-                                        self.evaluate_stmt(stmt);
+                                        match stmt {
+                                            Stmt::Return(expr) => {
+                                                let object = self.evaluate_expr(expr).unwrap();
+                                                return Some(Object::ReturnValue(Box::new(object)));
+                                            }
+                                            _ => {
+                                                self.evaluate_stmt(stmt);
+                                            }
+                                        }
                                     }
                                     condition = true;
                                     break;
@@ -394,7 +462,15 @@ impl Evaluator {
                         }
                         if !condition {
                             for stmt in else_branch {
-                                self.evaluate_stmt(stmt);
+                                match stmt {
+                                    Stmt::Return(expr) => {
+                                        let object = self.evaluate_expr(expr).unwrap();
+                                        return Some(Object::ReturnValue(Box::new(object)));
+                                    }
+                                    _ => {
+                                        self.evaluate_stmt(stmt);
+                                    }
+                                }
                             }
                         }
                     }
@@ -408,13 +484,14 @@ impl Evaluator {
                 let mut result = Some(Object::Nil);
                 let callee = self.evaluate_expr(&callee);
                 match callee {
-                    Some(Object::Builtin(argc, fun)) => {
+                    Some(Object::Builtin(name, argc, fun)) => {
                         let mut args_vec = Vec::new();
                         for arg in args {
                             args_vec.push(self.evaluate_expr(arg).unwrap());
                         }
-                        if args_vec.len() as i32 != argc {
-                            println!("Expected {} arguments but got {}.", argc, args_vec.len());
+                        let real_argc = args_vec.len() as i32;
+                        if argc != -1 && real_argc != argc {
+                            println!("fun {}: Expected {} arguments but got {}.", name, argc, real_argc);
                             exit(70);
                         }
                         result = Some(fun(args_vec));
@@ -428,15 +505,10 @@ impl Evaluator {
                             self.envs.borrow_mut().set_store(param.0.clone(), &arg);
                         }
                         for stmt in stmts {
-                            match stmt {
-                                Stmt::Return(expr) => {
-                                    result = self.evaluate_expr(&expr);
-                                    break;
-                                }
-                                Stmt::Blank => {}
-                                _ => {
-                                    self.evaluate_stmt(&stmt);
-                                }
+                            let block_result = self.evaluate_stmt(&stmt);
+                            if block_result.is_some() {
+                                result = block_result;
+                                break;
                             }
                         }
                         self.envs = current_env;
@@ -516,7 +588,8 @@ impl Evaluator {
 
                     self.envs.borrow_mut().set_current_class(class.clone());
 
-                    if let Object::Function(params, stmts) = properties.borrow().get(&method.0).unwrap()
+                    if let Object::Function(params, stmts) =
+                        properties.borrow().get(&method.0).unwrap()
                     {
                         for (i, param) in args.iter().enumerate() {
                             let arg: Object = self.evaluate_expr(&param).unwrap();
@@ -559,7 +632,7 @@ impl Evaluator {
     }
 
     fn eval_index_expr(&mut self, left: Object, index: Object) -> Option<Object> {
-        match left {
+        match left.clone() {
             Object::Array(arr) => {
                 if let Object::Index(index) = index {
                     return Some(arr[index].clone());
@@ -569,9 +642,22 @@ impl Evaluator {
                 return Some(Object::Nil);
             }
             Object::Hash(hash) => {
-                return Some(hash.get(&index).unwrap().clone());
+                if let Some(value) = hash.borrow().get(&index) {
+                    return Some(value.clone());
+                }
+                return Some(Object::Nil);
             }
-            _ => unimplemented!("not found {:?}", left),
+            Object::String(s) => {
+                if let Object::Number(index) = index {
+                    return Some(Object::String(s.chars().nth(index as usize).unwrap().to_string()));
+                } else if let Object::Index(idx) = index {
+                    return Some(Object::String(s.chars().nth(idx).unwrap().to_string()));
+                } else if let Object::String(index) = index {
+                    panic!("not support string index {:?}[{:?}]", left, index);
+                }
+                return Some(Object::Nil);
+            }
+            _ => unimplemented!("index only support array, hash and string. not support {:?}", left),
         }
     }
 }

@@ -7,22 +7,25 @@ var hash = {
     "key4": [1, 2, 3, 4, 5]
 };
 
-print hash["key"];
+hash["key5"] = "value5";
 
-print hash["key2"];
+println(hash["key5"]);
 
-print hash["key3"]["key4"];
+println(hash["key"]);
 
-print "--------hash array value: hash[key4][0] ---------";
+println(hash["key2"]);
 
-print hash["key4"][0];
+println(hash["key3"]["key4"]);
 
-print "--------hash array value ---------";
+println("--------hash array value: hash[key4][0] ---------");
+
+println(hash["key4"][0]);
+
+println("--------hash array value ---------");
 
 
-print "-----------------";
+println("-----------------");
 for (var key in hash) {
-    print key;
-    print hash[key];
-    print "--------x---------";
+    println(key, ":", hash[key]);
+    println("--------x---------");
 }

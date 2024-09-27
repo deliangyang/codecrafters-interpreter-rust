@@ -1,0 +1,27 @@
+println("x" == "x");
+println(typeis(true));
+
+fun x() {
+    return true;
+}
+
+println(typeis(x()));
+
+var x = "0123456789";
+println("x[0] is:", x[0]);
+println("x[1] is:", x[1]);
+
+for (var i = 0; i < len(x); i = i + 1) {
+    println("x[", i, "] is:", x[i]);
+}
+
+fun test2(a) {
+    println("a is:", typeis(a), a == "true");
+    if (a == "true") {
+        return true;
+    }
+    println("a is:", typeis(a), a == "false");
+    return false;
+}
+
+println(typeis(test2("true")));

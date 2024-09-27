@@ -1,0 +1,84 @@
+fun json_decode(json) {
+    json = trim(json);
+    if (json == "null") {
+        return nil;
+    }
+    if (json == "true") {
+        return true;
+    }
+    if (json == "false") {
+        return false;
+    }
+    if (json[0] == '"') {
+        return trim(substr(json, 1, len(json) - 1));
+    }
+    if (json[0] == '[') {
+        var arr = [];
+        var i = 1;
+        while (i < len(json) - 1) {
+            var j = i;
+            while (json[j] == ' ') {
+                j = j + 1;
+            }
+            while (json[j] != ',' && json[j] != ']') {
+                j = j + 1;
+            }
+            var value = json_decode(substr(json, i, j));
+            arr = append(arr, value);
+            i = j + 1;
+        }
+        return arr;
+    }
+
+    if (json[0] == '{') {
+        var obj = {};
+        var i = 1;
+        while (i < len(json) - 1) {
+            var j = i;
+            while (json[j] == ' ') {
+                j = j + 1;
+            }
+            while (json[j] != ':') {
+                j = j + 1;
+            }
+           
+            var key = json_decode(substr(json, i, j));
+            j = j + 1;
+            i = j;
+            while (json[j] != ',' && json[j] != '}') {
+                j = j + 1;
+            }
+            var value = json_decode(substr(json, i, j));
+            obj[key] = value;
+            i = j + 1;
+        }
+        return obj;
+    }
+    if (is_number(json)) {
+        return intval(json);
+    }
+    json = trim(json);
+    return strval(json);
+}
+
+
+var x = json_decode('nil');
+println(x == 'nil');
+println(typeis(x));
+println(typeis(json_decode('null')));
+println(typeis(json_decode("null")));
+println(typeis(json_decode("true")));
+println(typeis(json_decode("false")));
+println(typeis(json_decode('"hello"')));
+
+println(typeis(json_decode("[1, 2, 3, 4, 5]")));
+println(typeis(json_decode('["hello", "world", "json"]')));
+
+var result = json_decode('{"key": "value", "key2": 1}');
+println(result["key"]);
+
+//var result = json_decode('{"key": "value", "key2": 1, "key3": {"key4": "value4"}, "key4": [1, 2, 3, 4, 5]}');
+//println(result);
+//println(result["key"]);
+//
+//println(typeis(result));

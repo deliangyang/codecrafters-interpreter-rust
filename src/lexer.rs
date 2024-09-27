@@ -107,6 +107,14 @@ impl<'a> Lexing<'a> {
                     }
                     return Token::Bang;
                 }
+                '&' => {
+                    self.get_char();
+                    if self.peek() == '&' {
+                        self.get_char();
+                        return Token::And;
+                    }
+                    return Token::BitAnd;
+                }
                 '<' => {
                     self.get_char();
                     if self.peek() == '=' {
@@ -122,6 +130,27 @@ impl<'a> Lexing<'a> {
                         return Token::GreaterEqual;
                     }
                     return Token::Greater;
+                }
+                '\'' => {
+                    let mut s = String::new();
+                    self.get_char();
+                    while self.l > self.position {
+                        let c = self.peek();
+                        if c == '\\' && self.peek_n(2) == '\'' {
+                            self.get_char();
+                            s.push(self.get_char());
+                        }
+                        if c == '\'' {
+                            self.get_char();
+                            return Token::String(s);
+                        }
+                        s.push(self.get_char());
+                    }
+                    self.errors.push(format!(
+                        "[line {}] Error: Unterminated string.",
+                        self.lines + 1
+                    ));
+                    eprintln!("[line {}] Error: Unterminated string.", self.lines + 1);
                 }
                 '"' => {
                     let mut s = String::new();

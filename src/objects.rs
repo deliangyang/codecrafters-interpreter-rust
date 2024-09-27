@@ -14,8 +14,9 @@ pub enum Object {
     Index(usize),
     String(String),
     Array(Vec<Object>),
-    Hash(HashMap<Object, Object>),
-    Builtin(i32, BuiltinFunc),
+    ReturnValue(Box<Object>),
+    Hash(Rc<RefCell<HashMap<Object, Object>>>),
+    Builtin(String, i32, BuiltinFunc),
     Function(Vec<ast::Ident>, ast::BlockStmt),
     Class(String, Vec<ast::Stmt>),
     ClassInstance {
@@ -45,7 +46,7 @@ impl Display for Object {
             Object::Nil => write!(f, "nil"),
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
-            Object::Builtin(c, func) => write!(f, "builtin function: {} {:?}", c, func),
+            Object::Builtin(s, c, func) => write!(f, "builtin function: {} {} {:?}", s, c, func),
             Object::Function(params, body) => {
                 let mut params_str = String::new();
                 for (i, param) in params.iter().enumerate() {
@@ -56,6 +57,7 @@ impl Display for Object {
                 }
                 write!(f, "fn({}) {:?}", params_str, body)
             }
+            Object::ReturnValue(obj) => write!(f, "{}", obj),
             Object::Array(elements) => {
                 let mut elements_str = String::new();
                 for (i, elem) in elements.iter().enumerate() {
@@ -68,7 +70,7 @@ impl Display for Object {
             }
             Object::Hash(hash) => {
                 let mut hash_str = String::new();
-                for (key, value) in hash.iter() {
+                for (key, value) in hash.borrow().iter() {
                     hash_str.push_str(&format!("{}: {}, ", key, value));
                 }
                 write!(f, "{{{}}}", hash_str)

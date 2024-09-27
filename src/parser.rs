@@ -410,6 +410,7 @@ impl<'a> Parser<'a> {
 
     fn token_precedence(&self, token: Token) -> Precedence {
         match token {
+            Token::And => Precedence::And,
             Token::EqualEqual | Token::BangEqual | Token::Equal => Precedence::Equals,
             Token::Less | Token::LessEqual | Token::Greater | Token::GreaterEqual => {
                 Precedence::LessGreater
@@ -548,16 +549,17 @@ impl<'a> Parser<'a> {
             Token::Fun => self.parse_function(),
             Token::Print => {
                 self.next();
-                if self.current == Token::Semicolon {
-                    self.lex.log_error(self.current.clone(), "Expect semicolon");
-                    return None;
+                let mut exprs = vec![];
+                while self.current != Token::Semicolon {
+                    let expr = self.parse_expr(Precedence::Lowest);
+                    if let Some(expr) = expr {
+                        exprs.push(expr);
+                    }
+                    if self.current == Token::Comma {
+                        self.next();
+                    }
                 }
-                let expr = self.parse_expr(Precedence::Lowest);
-                if self.current != Token::Semicolon {
-                    self.lex.log_error(self.current.clone(), "Expect semicolon");
-                    return None;
-                }
-                return Some(ExprType::PrintExpr(Box::new(expr.unwrap())));
+                return Some(ExprType::PrintExpr(Box::new(exprs)));
             }
             _ => {
                 println!("Unexpected token: {:?}", self.current);
@@ -588,6 +590,7 @@ impl<'a> Parser<'a> {
                 | Token::Less
                 | Token::LessEqual
                 | Token::Greater
+                | Token::And
                 | Token::GreaterEqual => {
                     left = self.parse_infix_expr(left.unwrap());
                 }
@@ -670,6 +673,7 @@ impl<'a> Parser<'a> {
 
     fn parse_index_expr(&mut self, left: ExprType) -> Option<ExprType> {
         self.next();
+
         let index = self.parse_expr(Precedence::Lowest).unwrap();
 
         if self.current == Token::RightBracket {
@@ -739,6 +743,7 @@ impl<'a> Parser<'a> {
         if self.current == Token::RightParen {
             self.next();
         } else {
+            println!("Unexpected token: {:?}", self.current);
             self.lex
                 .log_error(self.current.clone(), "Expect expression");
             return None;
@@ -746,6 +751,7 @@ impl<'a> Parser<'a> {
         match expr {
             Some(expr) => Some(ExprType::GroupingExpr(Box::new(expr))),
             None => {
+                println!("Unexpected token: {:?}", self.current);
                 self.lex
                     .log_error(self.current.clone(), "Expect expression");
                 return None;
@@ -760,6 +766,7 @@ impl<'a> Parser<'a> {
         if let Some(right) = right {
             return Some(ExprType::PrefixExpr(op, Box::new(right)));
         }
+        println!("Unexpected token: {:?}", self.current);
         self.lex
             .log_error(self.current.clone(), "Expect expression");
         return None;
@@ -791,6 +798,7 @@ impl<'a> Parser<'a> {
         if let Some(right) = self.parse_expr(precedence) {
             return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
         }
+        println!("Unexpected token: {:?}", self.current);
         self.lex
             .log_error(self.current.clone(), "Expect expression");
         return None;
