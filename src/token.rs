@@ -9,6 +9,7 @@ pub enum Token {
     Class,
     New,
     In,
+    Import,     // import "module"
     Else,
     False,
     For,
@@ -113,6 +114,7 @@ impl Display for Token {
             Token::LeftBracket => write!(f, "LEFT_BRACKET [ null"),
             Token::RightBracket => write!(f, "RIGHT_BRACKET ] null"),
             Token::In => write!(f, "IN in null"),
+            Token::Import => write!(f, "IMPORT import null"),
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;

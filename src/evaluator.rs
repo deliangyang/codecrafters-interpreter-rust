@@ -137,6 +137,9 @@ impl Evaluator {
                     }
                 }
             }
+            Stmt::Import(_) => {
+                
+            }
             _ => unimplemented!(),
         }
     }

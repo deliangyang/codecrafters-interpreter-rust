@@ -76,7 +76,23 @@ fn main() {
                 if parse.has_errors() {
                     exit(65);
                 }
-                let mut evaluator = Evaluator::new(program, false);
+                let imports = parse.get_imports(program.clone());
+
+                let mut prog_modules = Vec::new();
+                if let Some(modules) = imports {
+                    for (_, module) in modules {
+                        let lex = Lexing::new(&module);
+                        let mut parse = Parser::new(lex);
+                        let prog: Vec<codecrafters_interpreter::ast::Stmt> = parse.parse();
+                        if parse.has_errors() {
+                            exit(65);
+                        }
+                        prog_modules.extend(prog);
+                    }
+                }
+                prog_modules.extend(program);
+
+                let mut evaluator = Evaluator::new(prog_modules, false);
                 evaluator.evaluate();
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner

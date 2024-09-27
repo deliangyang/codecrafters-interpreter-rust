@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::process::exit;
+use std::{fs, vec};
 
 use crate::ast::{BlockStmt, ExprType, Ident, Literal, Precedence, Progam, Stmt};
 use crate::lexer::Lexing;
@@ -39,6 +41,32 @@ impl<'a> Parser<'a> {
         program
     }
 
+    pub fn get_imports(&mut self, progam: Progam) -> Option<HashMap<String, String>> {
+        let imports = progam.iter().filter(|stmt| match stmt {
+            Stmt::Import(_) => true,
+            _ => false,
+        });
+        if imports.clone().count() == 0 {
+            return None;
+        }
+        let mut progs = HashMap::new();
+        for import in imports.clone() {
+            match import {
+                Stmt::Import(s) => {
+                    let current_dir = std::env::current_dir().unwrap();
+                    let filename = format!("{}.lox", s);
+                    println!("current_dir: {:?}", current_dir.join(filename.clone()));
+                    let file_contents = fs::read_to_string(current_dir.join(filename)).unwrap();
+                    if !file_contents.is_empty() {
+                        progs.insert(s.to_string(), file_contents);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Some(progs)
+    }
+
     fn parse_ident(&mut self) -> Option<Ident> {
         match self.current.clone() {
             Token::Identifier(s) => Some(Ident(s)),
@@ -59,6 +87,7 @@ impl<'a> Parser<'a> {
                 }
                 return None;
             }
+            Token::Import => self.parse_import_stmt(),
             Token::Return => self.parse_return(),
             Token::Var => self.parse_var_stmt(),
             Token::Switch => self.parse_switch(),
@@ -171,7 +200,7 @@ impl<'a> Parser<'a> {
             return None;
         }
         self.next();
-        
+
         let step = self.parse_expr(Precedence::Lowest).unwrap();
         if self.current != Token::RightParen {
             self.lex
@@ -199,7 +228,10 @@ impl<'a> Parser<'a> {
         }
         let properties = self.parse_block().unwrap();
 
-        Some(Stmt::ClassStmt { name: ident, properties: properties })
+        Some(Stmt::ClassStmt {
+            name: ident,
+            properties: properties,
+        })
     }
 
     fn parse_while(&mut self) -> Option<Stmt> {
@@ -563,7 +595,7 @@ impl<'a> Parser<'a> {
                     left = self.parse_call(left.unwrap());
                 }
                 Token::LeftBracket => {
-                    left =self.parse_index_expr(left.unwrap());
+                    left = self.parse_index_expr(left.unwrap());
                 }
                 Token::Dot => {
                     let class_name = match left {
@@ -585,7 +617,7 @@ impl<'a> Parser<'a> {
                     self.next();
                     let args = self.parse_args_list();
 
-                    left = Some(ExprType::ClassCall{
+                    left = Some(ExprType::ClassCall {
                         callee: class_name,
                         method: ident,
                         args: args.unwrap(),
@@ -597,7 +629,6 @@ impl<'a> Parser<'a> {
 
         left
     }
-
 
     fn parse_hash_literal(&mut self) -> Option<ExprType> {
         self.next();
@@ -620,6 +651,23 @@ impl<'a> Parser<'a> {
         Some(ExprType::Literal(Literal::Hash(hash)))
     }
 
+    fn parse_import_stmt(&mut self) -> Option<Stmt> {
+        self.next();
+        if let Token::String(s) = self.current.clone() {
+            self.next();
+            if self.current != Token::Semicolon {
+                self.lex
+                    .log_error(self.current.clone(), "Expect ';' after import");
+                return None;
+            }
+            self.next();
+            return Some(Stmt::Import(s));
+        }
+        self.lex
+            .log_error(self.current.clone(), "Expect string after import");
+        return None;
+    }
+
     fn parse_index_expr(&mut self, left: ExprType) -> Option<ExprType> {
         self.next();
         let index = self.parse_expr(Precedence::Lowest).unwrap();
@@ -634,8 +682,9 @@ impl<'a> Parser<'a> {
 
         if let ExprType::Literal(Literal::Number(v)) = index {
             return Some(ExprType::IndexExpr(
-                Box::new(left), 
-                Box::new(ExprType::Literal(Literal::Index(v as usize)))));
+                Box::new(left),
+                Box::new(ExprType::Literal(Literal::Index(v as usize))),
+            ));
         }
 
         Some(ExprType::IndexExpr(Box::new(left), Box::new(index)))
@@ -677,7 +726,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.next();
-        Some(ExprType::ClassInit{
+        Some(ExprType::ClassInit {
             name: ident,
             args: args,
         })

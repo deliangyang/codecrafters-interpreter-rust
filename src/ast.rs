@@ -22,6 +22,7 @@ pub enum Stmt {
     Case(ExprType, BlockStmt),
     Default(BlockStmt),
     While(ExprType, BlockStmt),
+    Import(String),
     ClassStmt {
         name: Ident,
         properties: Vec<Stmt>,
@@ -51,6 +52,7 @@ impl Display for Stmt {
                 }
                 Ok(())
             }
+            Stmt::Import(s) => write!(f, "import {:?}", s),
             Stmt::Return(e) => write!(f, "return {}", e),
             Stmt::Blank => write!(f, ""),
             Stmt::Function(name, params, body) => {
