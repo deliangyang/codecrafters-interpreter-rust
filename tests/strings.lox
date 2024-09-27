@@ -23,3 +23,5 @@ var x = new Strings();
 x.append("0123456789");
 println(x.s);
 println(x.len());
+println(x.s[1]);
+println(x.s[3]);
