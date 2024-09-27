@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use crate::{
     ast::{self, Progam, Stmt},
@@ -9,13 +9,15 @@ use crate::{
 pub struct Imports {
     imports: HashMap<String, ast::Progam>,
     program: ast::Progam,
+    current_dir: std::path::PathBuf,
 }
 
 impl Imports {
-    pub fn new(program: ast::Progam) -> Self {
+    pub fn new(program: ast::Progam, current_dir: PathBuf) -> Self {
         Imports {
             imports: HashMap::new(),
             program,
+            current_dir,
         }
     }
 
@@ -46,10 +48,9 @@ impl Imports {
         for import in imports.clone() {
             match import {
                 Stmt::Import(s) => {
-                    let current_dir = std::env::current_dir().unwrap();
                     let filename = format!("{}.lox", s);
                     let file_contents =
-                        fs::read_to_string(current_dir.join(filename.clone())).unwrap();
+                        fs::read_to_string(self.current_dir.join(filename.clone())).unwrap();
                     if file_contents.is_empty() {
                         panic!("Error reading file: {}", filename.clone());
                     }

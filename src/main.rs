@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 use std::io::{self, Write};
+use std::path::Path;
 use std::process::exit;
 
 use codecrafters_interpreter::evaluator::Evaluator;
@@ -69,6 +70,7 @@ fn main() {
                 String::new()
             });
 
+            let file_current_dir = Path::new(filename).parent().unwrap();
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
                 let lex = Lexing::new(&file_contents);
@@ -77,7 +79,7 @@ fn main() {
                 if parse.has_errors() {
                     exit(65);
                 }
-                let mut import = Imports::new(program);
+                let mut import = Imports::new(program, file_current_dir.to_path_buf());
                 let mut evaluator = Evaluator::new(import.load(), false);
                 evaluator.evaluate();
             } else {
