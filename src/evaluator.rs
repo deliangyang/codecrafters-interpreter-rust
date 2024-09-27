@@ -194,7 +194,7 @@ impl Evaluator {
                 } else if let Some(env) = self.envs.borrow_mut().get(v.0.clone()) {
                     return Some(env.clone());
                 }
-                // println!("Undefined variable '{}'.", v.0);
+                println!("Undefined variable '{}'.", v.0);
                 exit(70);
             }
             ExprType::GroupingExpr(expr) => self.evaluate_expr(expr),
@@ -232,8 +232,17 @@ impl Evaluator {
                             return Some(object);
                         }
                         ExprType::ThisExpr(ident) => {
-                            let object = self.evaluate_expr(right).unwrap();
-                            self.envs.borrow_mut().set(ident.0.clone(), &object);
+                            let object = self.envs.borrow_mut().get_current_class().unwrap();
+                            if let Object::ClassInstance {
+                                name: _,
+                                ref fields,
+                                properties: _,
+                            } = object.clone()
+                            {
+                                let object = self.evaluate_expr(right).unwrap();
+                                fields.borrow_mut().insert(ident.0.clone(), object.clone());
+                                return Some(object);
+                            }
                             return Some(object);
                         }
                         _ => {}
@@ -439,39 +448,52 @@ impl Evaluator {
                 let class_name = name.clone().to_string();
                 let class = self.envs.borrow_mut().get(class_name).unwrap();
 
+                let mut props = HashMap::new();
+                let mut fields = HashMap::new();
                 if let Object::Class(_, properties) = class.clone() {
-                    let current_env = Rc::clone(&self.envs);
-                    let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
-                    self.envs = Rc::new(RefCell::new(pre_envs));
-                    let init_func = properties
-                        .iter()
-                        .find(|x| {
-                            if let Stmt::Function(ident, _, _) = x {
-                                if ident.0 == "init" {
-                                    return true;
-                                }
+                    for property in properties.iter() {
+                        match property {
+                            Stmt::Var(ident, expr) => {
+                                let name = ident.0.clone();
+                                let object = self.evaluate_expr(&expr).unwrap();
+                                fields.insert(name, object);
                             }
-                            false
-                        })
-                        .unwrap();
-                    if let Stmt::Function(_, params, block) = init_func {
-                        for (i, arg) in args.iter().enumerate() {
-                            let arg: Object = self.evaluate_expr(&arg).unwrap();
-                            let ident = params[i].0.clone();
-                            self.envs.borrow_mut().set(ident, &arg);
-                        }
-                        for stmt in block {
-                            self.evaluate_stmt(stmt);
-                        }
+                            Stmt::Function(ident, params, body) => {
+                                let name = ident.0.clone();
+                                let object = Object::Function(params.clone(), body.clone());
+                                props.insert(name, object);
+                            }
+                            _ => unimplemented!(),
+                        };
                     }
-                    self.envs = current_env;
+                    let instance = Object::ClassInstance {
+                        name: name.clone().to_string(),
+                        fields: Rc::new(RefCell::new(fields)),
+                        properties: Rc::new(RefCell::new(props.clone())),
+                    };
+                    if let Some(init_func) = props.clone().get("init") {
+                        let current_env = Rc::clone(&self.envs);
+                        let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
+                        self.envs = Rc::new(RefCell::new(pre_envs));
+                        if let Object::Function(params, body) = init_func {
+                            for (i, arg) in args.iter().enumerate() {
+                                let arg: Object = self.evaluate_expr(&arg).unwrap();
+                                let ident = params[i].0.clone();
+                                self.envs.borrow_mut().set(ident, &arg);
+                            }
+                            // println!("------------>{:?}", instance);
+                            self.envs.borrow_mut().set_current_class(instance.clone());
+                            for stmt in body {
+                                self.evaluate_stmt(stmt);
+                            }
+                            self.envs.borrow_mut().reset_current_class();
+                        }
+                        self.envs = current_env;
+                    }
+                    return Some(instance);
                 }
 
-                return Some(Object::ClassInstance {
-                    name: name.clone().to_string(),
-                    class: Rc::new(RefCell::new(class.clone())),
-                    properties: Rc::new(RefCell::new(HashMap::new())),
-                });
+                return Some(Object::Nil);
             }
             ExprType::ClassCall {
                 callee,
@@ -479,35 +501,52 @@ impl Evaluator {
                 args,
             } => {
                 let class = self.envs.borrow_mut().get(callee.to_string()).unwrap();
-                if let Object::Class(_, stmts) = class {
+                if let Object::ClassInstance {
+                    name: _,
+                    fields: _,
+                    ref properties,
+                } = class.clone()
+                {
                     let current_env = Rc::clone(&self.envs);
                     let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                     self.envs = Rc::new(RefCell::new(pre_envs));
-                    for stmt in stmts {
-                        match stmt {
-                            Stmt::Function(ident, _, block) => {
-                                if ident.0 == method.to_string() {
-                                    for stmt in block {
-                                        self.evaluate_stmt(&stmt);
-                                    }
-                                }
-                            }
-                            _ => {}
+
+                    self.envs.borrow_mut().set_current_class(class.clone());
+
+                    if let Object::Function(params, stmts) = properties.borrow().get(&method.0).unwrap()
+                    {
+                        for (i, param) in args.iter().enumerate() {
+                            let arg: Object = self.evaluate_expr(&param).unwrap();
+                            self.envs.borrow_mut().set_store(params[i].0.clone(), &arg);
+                        }
+                        for stmt in stmts {
+                            self.evaluate_stmt(stmt);
                         }
                     }
                     self.envs = current_env;
+                    self.envs.borrow_mut().reset_current_class();
                 }
-                println!("------------>{} {:?} {:?}", callee, method, args);
                 return Some(Object::Nil);
             }
             ExprType::ThisExpr(ident) => {
-                let object = self.envs.borrow_mut().get(ident.0.clone()).unwrap();
+                let object = self.envs.borrow_mut().get_current_class().unwrap();
+                if let Object::ClassInstance {
+                    name: _,
+                    ref fields,
+                    properties: _,
+                } = object.clone()
+                {
+                    if let Some(object) = fields.borrow().get(&ident.0) {
+                        return Some(object.clone());
+                    }
+                    return Some(Object::Nil);
+                }
                 return Some(object.clone());
             }
             ExprType::IndexExpr(ident, index) => {
                 let left = self.evaluate_expr(ident).unwrap();
                 let index = self.evaluate_expr(index).unwrap();
-                return self.eval_index_expr(left, index);                
+                return self.eval_index_expr(left, index);
             }
             _ => {
                 println!("not found2 {:?}", expr);
@@ -524,11 +563,11 @@ impl Evaluator {
                 } else if let Object::Number(index) = index {
                     return Some(arr[index as usize].clone());
                 }
-                return Some(Object::Nil)
-            },
+                return Some(Object::Nil);
+            }
             Object::Hash(hash) => {
                 return Some(hash.get(&index).unwrap().clone());
-            },
+            }
             _ => unimplemented!("not found {:?}", left),
         }
     }

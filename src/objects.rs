@@ -20,7 +20,7 @@ pub enum Object {
     Class(String, Vec<ast::Stmt>),
     ClassInstance {
         name: String,
-        class: Rc<RefCell<Object>>,
+        fields: Rc<RefCell<HashMap<String, Object>>>,
         properties: Rc<RefCell<HashMap<String, Object>>>,
     },
 }
@@ -83,10 +83,13 @@ impl Display for Object {
             }
             Object::ClassInstance {
                 name,
-                class: _,
+                fields,
                 properties,
             } => {
                 write!(f, "instance of class {} {{\n", name)?;
+                for (key, value) in fields.borrow().iter() {
+                    writeln!(f, "\t{}: {}", key, value)?;
+                }
                 for (key, value) in properties.borrow().iter() {
                     writeln!(f, "\t{}: {}", key, value)?;
                 }

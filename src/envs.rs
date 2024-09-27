@@ -8,6 +8,7 @@ use crate::objects::Object;
 pub struct Env {
     store: HashMap<String, Object>,
     outer: Option<Rc<RefCell<Env>>>,
+    current_class: Option<Object>
 }
 
 impl Env {
@@ -15,17 +16,23 @@ impl Env {
         Env {
             store: HashMap::new(),
             outer: None,
+            current_class: None
         }
     }
 
     pub fn from(store: HashMap<String, Object>) -> Self {
-        Env { store, outer: None }
+        Env {
+            store: store, 
+            outer: None,
+            current_class: None,
+        }
     }
 
     pub fn new_with_outer(outer: Rc<RefCell<Env>>) -> Self {
         Env {
             store: HashMap::new(),
             outer: Some(outer),
+            current_class: None,
         }
     }
 
@@ -54,6 +61,21 @@ impl Env {
             }
         }
         //self.store.insert(name, value.clone());
+    }
+
+    pub fn set_current_class(&mut self, class: Object) {
+        self.current_class = Some(class);
+    }
+
+    pub fn get_current_class(&self) -> Option<Object> {
+        match &self.current_class {
+            Some(class) => Some(class.clone()),
+            None => None,
+        }
+    }
+
+    pub fn reset_current_class(&mut self) {
+        self.current_class = None;
     }
 
     pub fn set_store(&mut self, name: String, value: &Object) {

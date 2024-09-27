@@ -18,5 +18,7 @@ class Foo {
 }
 
 var x = new Foo(3, 4);
+print "------------------ class test: x.printx() ----------------------";
 x.printx();
+print "------------------ class test: x.aIncr(10) ----------------------";
 x.aIncr(10);
