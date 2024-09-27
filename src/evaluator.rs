@@ -71,6 +71,7 @@ impl Evaluator {
                 if self.output {
                     println!("{}", object);
                 }
+                return Some(Object::ReturnValue(Box::new(object)));
             }
             Stmt::Function(ident, args, body) => {
                 let name = ident.0.clone();
@@ -310,6 +311,10 @@ impl Evaluator {
                             if let Object::String(right) = right.unwrap() {
                                 return Some(Object::Boolean(left == right));
                             }
+                        } else if let Object::Nil = left.clone().unwrap() {
+                            if let Object::Nil = right.unwrap() {
+                                return Some(Object::Boolean(true));
+                            }
                         }
                         return Some(Object::Boolean(false));
                     }
@@ -434,7 +439,10 @@ impl Evaluator {
                                     return Some(Object::ReturnValue(Box::new(object)));
                                 }
                                 _ => {
-                                    self.evaluate_stmt(stmt);
+                                    let result = self.evaluate_stmt(stmt);
+                                    if result.is_some() {
+                                        return result;
+                                    }
                                 }
                             }
                         }
@@ -451,7 +459,10 @@ impl Evaluator {
                                                 return Some(Object::ReturnValue(Box::new(object)));
                                             }
                                             _ => {
-                                                self.evaluate_stmt(stmt);
+                                                let result = self.evaluate_stmt(stmt);
+                                                if result.is_some() {
+                                                    return result;
+                                                }
                                             }
                                         }
                                     }
@@ -468,7 +479,9 @@ impl Evaluator {
                                         return Some(Object::ReturnValue(Box::new(object)));
                                     }
                                     _ => {
-                                        self.evaluate_stmt(stmt);
+                                        if let Some(result) = self.evaluate_stmt(stmt) {
+                                            return Some(result);
+                                        }
                                     }
                                 }
                             }
@@ -481,7 +494,6 @@ impl Evaluator {
                 return Some(Object::Function(params.clone(), body.clone()));
             }
             ExprType::Call { callee, args } => {
-                let mut result = Some(Object::Nil);
                 let callee = self.evaluate_expr(&callee);
                 match callee {
                     Some(Object::Builtin(name, argc, fun)) => {
@@ -494,7 +506,7 @@ impl Evaluator {
                             println!("fun {}: Expected {} arguments but got {}.", name, argc, real_argc);
                             exit(70);
                         }
-                        result = Some(fun(args_vec));
+                        return Some(fun(args_vec));
                     }
                     Some(Object::Function(ident, stmts)) => {
                         let current_env = Rc::clone(&self.envs);
@@ -507,8 +519,8 @@ impl Evaluator {
                         for stmt in stmts {
                             let block_result = self.evaluate_stmt(&stmt);
                             if block_result.is_some() {
-                                result = block_result;
-                                break;
+                                self.envs = current_env;
+                                return block_result;
                             }
                         }
                         self.envs = current_env;
@@ -516,7 +528,7 @@ impl Evaluator {
                     _ => unimplemented!("not found {:?}", callee),
                 }
 
-                return result;
+                None
             }
             ExprType::ClassInit { name, args } => {
                 // println!("{:?} {:?}", name, args);
@@ -555,6 +567,11 @@ impl Evaluator {
                                 let arg: Object = self.evaluate_expr(&arg).unwrap();
                                 let ident = params[i].0.clone();
                                 self.envs.borrow_mut().set(ident, &arg);
+                            }
+                            if args.len() == 0 {
+                                for param in params {
+                                    self.envs.borrow_mut().set(param.0.clone(), &Object::Nil);
+                                }
                             }
                             // println!("------------>{:?}", instance);
                             self.envs.borrow_mut().set_current_class(instance.clone());
@@ -596,7 +613,11 @@ impl Evaluator {
                             self.envs.borrow_mut().set_store(params[i].0.clone(), &arg);
                         }
                         for stmt in stmts {
-                            self.evaluate_stmt(stmt);
+                            let result = self.evaluate_stmt(stmt);
+                            if result.is_some() {
+                                self.envs = current_env;
+                                return result;
+                            }
                         }
                     }
                     self.envs = current_env;
@@ -618,6 +639,21 @@ impl Evaluator {
                     return Some(Object::Nil);
                 }
                 return Some(object.clone());
+            }
+            ExprType::ClassGet { callee, prop } => {
+                let class = self.envs.borrow_mut().get(callee.to_string()).unwrap();
+                if let Object::ClassInstance {
+                    name: _,
+                    fields,
+                    properties: _,
+                } = class.clone()
+                {
+                    if let Some(object) = fields.borrow().get(&prop.0) {
+                        return Some(object.clone());
+                    }
+                    return Some(Object::Nil);
+                }
+                return Some(class.clone());
             }
             ExprType::IndexExpr(ident, index) => {
                 let left = self.evaluate_expr(ident).unwrap();

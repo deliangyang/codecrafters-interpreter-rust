@@ -186,6 +186,10 @@ pub enum ExprType {
         method: Ident,
         args: Vec<ExprType>,
     },
+    ClassGet {
+        callee: Ident,
+        prop: Ident,
+    },
 }
 
 impl Display for ExprType {
@@ -347,6 +351,7 @@ impl Display for ExprType {
                 }
                 write!(f, ")")
             }
+            ExprType::ClassGet { callee, prop } => write!(f, "{}.{}", callee, prop),
             ExprType::IndexExpr(left, right) => {
                 write!(f, "{}[{}]", left, right)
             }

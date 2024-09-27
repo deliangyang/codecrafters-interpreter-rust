@@ -1,0 +1,25 @@
+
+class Strings {
+    var s;
+
+    fun init(s) {
+        if (s == nil) {
+            this.s = "";
+        } else {
+            this.s = s;
+        }
+    }
+
+    fun len() {
+        return len(this.s);
+    }
+
+    fun append(s) {
+        this.s = this.s + s;
+    }
+}
+
+var x = new Strings();
+x.append("0123456789");
+println(x.s);
+println(x.len());

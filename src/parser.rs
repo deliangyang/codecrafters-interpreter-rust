@@ -614,17 +614,20 @@ impl<'a> Parser<'a> {
                     let ident = self.parse_ident().unwrap();
                     self.next();
                     if self.current != Token::LeftParen {
-                        self.lex
-                            .log_error(self.current.clone(), "Expect '(' after class call");
-                    }
-                    self.next();
-                    let args = self.parse_args_list();
+                        left = Some(ExprType::ClassGet {
+                            callee: class_name,
+                            prop: ident,
+                        });
+                    } else {
+                        self.next();
+                        let args = self.parse_args_list();
 
-                    left = Some(ExprType::ClassCall {
-                        callee: class_name,
-                        method: ident,
-                        args: args.unwrap(),
-                    });
+                        left = Some(ExprType::ClassCall {
+                            callee: class_name,
+                            method: ident,
+                            args: args.unwrap(),
+                        });
+                    }
                 }
                 _ => return left,
             }
