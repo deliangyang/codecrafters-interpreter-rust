@@ -1,5 +1,7 @@
 import "add";
+import "array";
 
+print "------------------ add test: add(1, 2) ----------------------";
 print add(1, 2);
 
 print xxxx;

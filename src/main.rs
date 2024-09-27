@@ -4,6 +4,7 @@ use std::io::{self, Write};
 use std::process::exit;
 
 use codecrafters_interpreter::evaluator::Evaluator;
+use codecrafters_interpreter::imports::Imports;
 use codecrafters_interpreter::token::Token;
 use codecrafters_interpreter::lexer::Lexing;
 use codecrafters_interpreter::parser::Parser;
@@ -76,23 +77,8 @@ fn main() {
                 if parse.has_errors() {
                     exit(65);
                 }
-                let imports = parse.get_imports(program.clone());
-
-                let mut prog_modules = Vec::new();
-                if let Some(modules) = imports {
-                    for (_, module) in modules {
-                        let lex = Lexing::new(&module);
-                        let mut parse = Parser::new(lex);
-                        let prog: Vec<codecrafters_interpreter::ast::Stmt> = parse.parse();
-                        if parse.has_errors() {
-                            exit(65);
-                        }
-                        prog_modules.extend(prog);
-                    }
-                }
-                prog_modules.extend(program);
-
-                let mut evaluator = Evaluator::new(prog_modules, false);
+                let mut import = Imports::new(program);
+                let mut evaluator = Evaluator::new(import.load(), false);
                 evaluator.evaluate();
             } else {
                 println!("EOF  null"); // Placeholder, remove this line when implementing the scanner

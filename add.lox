@@ -1,3 +1,4 @@
+import "array";
 
 fun add(a, b) {
     return a + b;
