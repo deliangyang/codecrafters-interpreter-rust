@@ -128,6 +128,10 @@ impl<'a> Lexing<'a> {
                     self.get_char();
                     while self.l > self.position {
                         let c = self.peek();
+                        if c == '\\' && self.peek_n(2) == '"' {
+                            self.get_char();
+                            s.push(self.get_char());
+                        }
                         if c == '"' {
                             self.get_char();
                             return Token::String(s);
