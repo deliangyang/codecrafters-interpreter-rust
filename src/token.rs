@@ -51,6 +51,16 @@ pub enum Token {
     Dot,   // .
     Colon, // :
 
+    PlusPlus, // ++
+    MinusMinus, // --
+
+    PlusSelf, // +=
+    MinusSelf, // -=
+    StarSelf, // *=
+    SlashSelf, // /=
+    ModSelf, // %=
+    Mod, // %
+
     BitAnd, // &
     BitOr, // |
 
@@ -120,6 +130,14 @@ impl Display for Token {
             Token::In => write!(f, "IN in null"),
             Token::Import => write!(f, "IMPORT import null"),
             Token::BitOr => write!(f, "BIT_OR | null"),
+            Token::PlusSelf => write!(f, "PLUS_SELF += null"),
+            Token::MinusSelf => write!(f, "MINUS_SELF -= null"),
+            Token::StarSelf => write!(f, "STAR_SELF *= null"),
+            Token::SlashSelf => write!(f, "SLASH_SELF /= null"),
+            Token::ModSelf => write!(f, "MOD_SELF %= null"),
+            Token::Mod => write!(f, "MOD % null"),
+            Token::PlusPlus => write!(f, "PLUS_PLUS ++ null"),
+            Token::MinusMinus => write!(f, "MINUS_MINUS -- null"),
             Token::Number(n) => {
                 let num = n.parse::<f64>().unwrap();
                 let inum = (num as i64) as f64;

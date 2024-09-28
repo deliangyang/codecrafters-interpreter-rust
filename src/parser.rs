@@ -415,8 +415,11 @@ impl<'a> Parser<'a> {
             Token::Less | Token::LessEqual | Token::Greater | Token::GreaterEqual => {
                 Precedence::LessGreater
             }
-            Token::Star | Token::Slash => Precedence::Star,
+            Token::SlashSelf | Token::StarSelf | Token::ModSelf => Precedence::OpSelfMul,
+            Token::MinusSelf | Token::PlusSelf => Precedence::OpSelfSum,
+            Token::PlusPlus | Token::MinusMinus => Precedence::PlusPlus,
             Token::Plus | Token::Minus => Precedence::Plus,
+            Token::Star | Token::Mod | Token::Slash => Precedence::Star,
             Token::LeftParen => Precedence::Call,
             Token::LeftBracket => Precedence::Index,
             Token::Dot => Precedence::Call,
@@ -428,7 +431,10 @@ impl<'a> Parser<'a> {
         self.next();
         let value = self.parse_expr(Precedence::Lowest);
         if self.current != Token::Semicolon {
-            self.lex.log_error(self.current.clone(), format!("Expect ';' after return, {:?}", self.current).as_str());
+            self.lex.log_error(
+                self.current.clone(),
+                format!("Expect ';' after return, {:?}", self.current).as_str(),
+            );
             return None;
         }
         self.next();
@@ -600,6 +606,12 @@ impl<'a> Parser<'a> {
                 | Token::Greater
                 | Token::And
                 | Token::Or
+                | Token::MinusSelf
+                | Token::PlusSelf
+                | Token::StarSelf
+                | Token::SlashSelf
+                | Token::ModSelf
+                | Token::Mod
                 | Token::GreaterEqual => {
                     left = self.parse_infix_expr(left.unwrap());
                 }

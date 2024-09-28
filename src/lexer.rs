@@ -279,6 +279,10 @@ impl<'a> Lexing<'a> {
                 }
                 '*' => {
                     self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::StarSelf;
+                    }
                     return Token::Star;
                 }
                 '/' => {
@@ -295,16 +299,41 @@ impl<'a> Lexing<'a> {
                             s.push(self.get_char());
                         }
                         return Token::Comment(s);
+                    } else if self.peek() == '=' {
+                        self.get_char();
+                        return Token::SlashSelf;
                     }
                     return Token::Slash;
                 }
                 '-' => {
                     self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::MinusSelf;
+                    } else if self.peek() == '-' {
+                        self.get_char();
+                        return Token::MinusMinus;
+                    }
                     return Token::Minus;
                 }
                 '+' => {
                     self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::PlusSelf;
+                    } else if self.peek() == '+' {
+                        self.get_char();
+                        return Token::PlusPlus;
+                    }
                     return Token::Plus;
+                }
+                '%' => {
+                    self.get_char();
+                    if self.peek() == '=' {
+                        self.get_char();
+                        return Token::ModSelf;
+                    }
+                    return Token::Mod;
                 }
                 ',' => {
                     self.get_char();

@@ -1,0 +1,29 @@
+
+var a = 10;
+a += 1;
+
+println('10 + 1', a);
+
+a += 1 + 1;
+println('10 + 1 + 1 + 1', a);
+
+// a--;
+// println(a);
+// a++;
+// println(a);
+
+var b = 10;
+b -= 1;
+println('10 - 1', b);
+
+var c = 10;
+c *= 2;
+println('10 * 2', c);
+
+var d = 10;
+d /= 2;
+println('10 / 2', d);
+
+var e = 10;
+e %= 3;
+println('10 % 3', e);

@@ -253,7 +253,9 @@ impl Evaluator {
                                 Object::Boolean(expr) => return Some(Object::Boolean(!expr)),
                                 Object::Nil => return Some(Object::Boolean(true)),
                                 Object::Number(expr) => return Some(Object::Boolean(expr == 0.0)),
-                                Object::String(expr) => return Some(Object::Boolean(expr.is_empty())),
+                                Object::String(expr) => {
+                                    return Some(Object::Boolean(expr.is_empty()))
+                                }
                                 _ => unimplemented!(),
                             }
                         }
@@ -305,6 +307,100 @@ impl Evaluator {
                         }
                         _ => {}
                     }
+                }
+
+                match &op {
+                    Token::MinusSelf => {
+                        if let ExprType::Ident(ident) = *left.clone() {
+                            let object = self.evaluate_expr(right).unwrap();
+                            let object = match object {
+                                Object::Number(n) => n,
+                                _ => unimplemented!(),
+                            };
+                            let object = match self.envs.borrow_mut().get(ident.0.clone()) {
+                                Some(Object::Number(n)) => {
+                                    Object::Number(n - object.clone())
+                                }
+                                _ => unimplemented!(),
+                            };
+                            self.envs.borrow_mut().set(ident.0.clone(), &object);
+                            return Some(object);
+                        }
+                        return Some(Object::Nil);
+                    }
+                    Token::PlusSelf => {
+                        if let ExprType::Ident(ident) = *left.clone() {
+                            let object = self.evaluate_expr(right).unwrap();
+                            let object = match object {
+                                Object::Number(n) => n,
+                                _ => unimplemented!(),
+                            };
+                            let object = match self.envs.borrow_mut().get(ident.0.clone()) {
+                                Some(Object::Number(n)) => {
+                                    Object::Number(n + object.clone())
+                                }
+                                _ => unimplemented!(),
+                            };
+                            self.envs.borrow_mut().set(ident.0.clone(), &object);
+                            return Some(object);
+                        }
+                        return Some(Object::Nil);
+                    }
+                    Token::StarSelf => {
+                        if let ExprType::Ident(ident) = *left.clone() {
+                            let object = self.evaluate_expr(right).unwrap();
+                            let object = match object {
+                                Object::Number(n) => n,
+                                _ => unimplemented!(),
+                            };
+                            let object = match self.envs.borrow_mut().get(ident.0.clone()) {
+                                Some(Object::Number(n)) => {
+                                    Object::Number(n * object.clone())
+                                }
+                                _ => unimplemented!(),
+                            };
+                            self.envs.borrow_mut().set(ident.0.clone(), &object);
+                            return Some(object);
+                        }
+                        return Some(Object::Nil);
+                    }
+                    Token::SlashSelf => {
+                        if let ExprType::Ident(ident) = *left.clone() {
+                            let object = self.evaluate_expr(right).unwrap();
+                            let object = match object {
+                                Object::Number(n) => n,
+                                _ => unimplemented!(),
+                            };
+                            let object = match self.envs.borrow_mut().get(ident.0.clone()) {
+                                Some(Object::Number(n)) => {
+                                    Object::Number(n / object.clone())
+                                }
+                                _ => unimplemented!(),
+                            };
+                            self.envs.borrow_mut().set(ident.0.clone(), &object);
+                            return Some(object);
+                        }
+                        return Some(Object::Nil);
+                    }
+                    Token::ModSelf => {
+                        if let ExprType::Ident(ident) = *left.clone() {
+                            let object = self.evaluate_expr(right).unwrap();
+                            let object = match object {
+                                Object::Number(n) => n,
+                                _ => unimplemented!(),
+                            };
+                            let object = match self.envs.borrow_mut().get(ident.0.clone()) {
+                                Some(Object::Number(n)) => {
+                                    Object::Number(n % object.clone())
+                                }
+                                _ => unimplemented!(),
+                            };
+                            self.envs.borrow_mut().set(ident.0.clone(), &object);
+                            return Some(object);
+                        }
+                        return Some(Object::Nil);
+                    }
+                    _ => {}
                 }
 
                 let left = self.evaluate_expr(left);

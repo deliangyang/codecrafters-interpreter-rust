@@ -278,7 +278,13 @@ impl Display for ExprType {
                     Token::Equal => "=",
                     Token::And => "&&",
                     Token::Or => "||",
-                    _ => panic!("Invalid infix operator"),
+                    Token::Mod => "%",
+                    Token::ModSelf => "%=",
+                    Token::PlusSelf => "+=",
+                    Token::MinusSelf => "-=",
+                    Token::StarSelf => "*=",
+                    Token::SlashSelf => "/=",
+                    _ => panic!("Invalid infix operator {:?}", token),
                 };
                 write!(f, "({} {} {})", op, left, right)
             }
@@ -380,8 +386,11 @@ pub enum Precedence {
     And,        // &&
     Equals,      // ==
     LessGreater, // > or <
+    OpSelfSum,      // += -=
+    OpSelfMul,      // *= /=
     Plus,        // +
     Star,        // *
+    PlusPlus,    // ++ --
     Prefix,      // -X or !X
     Call,        // myFunction(x)
     Index,       // array[index] hash[index]
