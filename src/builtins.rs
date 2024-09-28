@@ -97,7 +97,10 @@ fn typeis(args: Vec<Object>) -> Object {
     if args.len() != 1 {
         return Object::Nil;
     }
-    Object::String(format!("{:?}", args[0]))
+    match &args[0] {
+        // Object::Hash(v) => Object::String(format!("{:?}", v.borrow())),
+        _ => Object::String(format!("{:?}", args[0])),
+    }
 }
 
 fn append(args: Vec<Object>) -> Object {

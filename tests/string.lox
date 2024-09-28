@@ -28,3 +28,9 @@ println(typeis(test2("true")));
 var s = 'aa\ta\'b\tc\rd\naaaaa';
 println(s);
 println("aa\t\''a\"v\tc\rd\naaaaa")
+
+var xy = '123';
+println(substr(xy, 0, 1));
+println(substr(xy, 1, 2));
+println(substr(xy, 2, 3));
+println(substr(xy, 3, 4));

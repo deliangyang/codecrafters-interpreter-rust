@@ -29,10 +29,15 @@ impl Env {
     }
 
     pub fn new_with_outer(outer: Rc<RefCell<Env>>) -> Self {
+        let outer_envs = outer.borrow().clone();
+        let current_class = match outer_envs.current_class {
+            Some(class_obj) => Some(class_obj.clone()),
+            None => None,
+        };
         Env {
             store: HashMap::new(),
             outer: Some(outer),
-            current_class: None,
+            current_class,
         }
     }
 
@@ -49,7 +54,6 @@ impl Env {
     pub fn set(&mut self, name: String, value: &Object) {
         match self.outer {
             Some(ref outer) => {
-                // println!("outer: {:?} {:?}", name, outer.borrow().store.contains_key(&name));
                 if outer.borrow().store.contains_key(&name) {
                     outer.borrow_mut().store.insert(name, value.clone());
                 } else {
