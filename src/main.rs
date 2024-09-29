@@ -22,30 +22,51 @@ fn main() {
     let command = &args[1];
     let filename = &args[2];
 
-    match command.as_str() {
-        "compile" => {
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
-                String::new()
-            });
+    let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+        writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
+        String::new()
+    });
 
-            // Uncomment this block to pass the first stage
-            if !file_contents.is_empty() {
-                let lex = Lexing::new(&file_contents);
-                let mut parse = Parser::new(lex);
-                let program = parse.parse();
-                if parse.has_errors() {
-                    exit(65);
-                }
-                let mut compile = Compiler::new(program);
-                compile.compile();
-                let mut vm = VM::new();
-                vm.define_constants(compile.constants);
-                let result = vm.run(compile.instructions);
-                println!("result: {:?}", result);
-            } else {
-                println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
+    if file_contents.is_empty() {
+        writeln!(io::stderr(), "File is empty").unwrap();
+        return;
+    }
+
+    match command.as_str() {
+        "dump" => {
+            let lex = Lexing::new(&file_contents);
+            let mut parse = Parser::new(lex);
+            let program = parse.parse();
+            if parse.has_errors() {
+                exit(65);
             }
+            let mut compile = Compiler::new(program);
+            compile.compile();
+
+            println!("constants:");
+            for (i, constant) in compile.constants.iter().enumerate() {
+                println!("\t{:04} {:?}", i, constant);
+            }
+
+            println!("\ninstructions:");
+            for (i, instruction) in compile.instructions.iter().enumerate() {
+                println!("\t{:04} {:?}", i, instruction);
+            }
+
+        }
+        "compile" => {
+            let lex = Lexing::new(&file_contents);
+            let mut parse = Parser::new(lex);
+            let program = parse.parse();
+            if parse.has_errors() {
+                exit(65);
+            }
+            let mut compile = Compiler::new(program);
+            compile.compile();
+            let mut vm = VM::new();
+            vm.define_constants(compile.constants);
+            let result = vm.run(compile.instructions);
+            println!("result: {:?}", result);
         }
         "parse" => {
             let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {

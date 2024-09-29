@@ -1,5 +1,9 @@
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
 use crate::{
     ast::{ExprType, Literal, Program, Stmt},
+    builtins,
+    envs::{self, Env},
     objects::Object,
     opcode::Opcode,
     token::Token,
@@ -9,6 +13,8 @@ pub struct Compiler {
     program: Program,
     pub constants: Vec<Object>,
     pub instructions: Vec<Opcode>,
+    envs: Rc<RefCell<envs::Env>>,
+    builtins: HashMap<String, Object>,
 }
 
 impl Compiler {
@@ -17,6 +23,8 @@ impl Compiler {
             program,
             constants: Vec::new(),
             instructions: Vec::new(),
+            envs: Rc::new(RefCell::new(Env::new())),
+            builtins: builtins::new_builtins(),
         }
     }
 
@@ -85,6 +93,17 @@ impl Compiler {
                 self.emit(Opcode::GetGlobal(0));
             }
             ExprType::Call { callee, args } => {
+                let func = match callee.as_ref() {
+                    ExprType::Ident(ident) => {
+                        if let Some(builtin) = self.builtins.get(&ident.0) {
+                            builtin.clone()
+                        } else {
+                            Object::Nil
+                        }
+                    }
+                    _ => Object::Nil,
+                };
+                self.constants.push(func);
                 for arg in args.iter() {
                     self.compile_expression(arg);
                 }
@@ -106,7 +125,6 @@ impl Compiler {
     pub fn emit_add(&mut self) {
         self.emit(Opcode::Add);
     }
-
 }
 
 #[cfg(test)]

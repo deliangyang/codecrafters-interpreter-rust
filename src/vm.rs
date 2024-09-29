@@ -55,7 +55,24 @@ impl VM {
                     let obj = self.stack.pop().unwrap();
                     println!("{} = {:?}", s, obj);
                 }
-                _ => unimplemented!(),
+                Opcode::GetGlobal(index) => {
+                    self.stack.push(self.constants[index].clone());
+                }
+                Opcode::Call(n) => {
+                    let mut args = Vec::new();
+                    for _ in 0..n {
+                        args.push(self.stack.pop().unwrap());
+                    }
+                    let func = self.stack.pop().unwrap();
+                    match func {
+                        Object::Builtin(_, _, f) => {
+                            let result = f(args);
+                            self.stack.push(result);
+                        }
+                        _ => unimplemented!("unimplemented function: {:?}", func),
+                    }
+                }
+                _ => unimplemented!("unimplemented opcode: {:?}", instruction),
             }
         }
         self.stack.pop().unwrap()
