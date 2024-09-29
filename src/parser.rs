@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::process::exit;
 use std::{fs, vec};
 
-use crate::ast::{BlockStmt, ExprType, Ident, Literal, Precedence, Progam, Stmt};
+use crate::ast::{BlockStmt, ExprType, Ident, Literal, Precedence, Program, Stmt};
 use crate::lexer::Lexing;
 use crate::token::{self, Token};
 
@@ -26,8 +26,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Progam {
-        let mut program: Progam = vec![];
+    pub fn parse(&mut self) -> Program {
+        let mut program: Program = vec![];
         while self.current != Token::Eof {
             match self.parse_stmt() {
                 Some(stmt) => {
@@ -41,8 +41,8 @@ impl<'a> Parser<'a> {
         program
     }
 
-    pub fn get_imports(&mut self, progam: Progam) -> Option<HashMap<String, String>> {
-        let imports = progam.iter().filter(|stmt| match stmt {
+    pub fn get_imports(&mut self, program: Program) -> Option<HashMap<String, String>> {
+        let imports = program.iter().filter(|stmt| match stmt {
             Stmt::Import(_) => true,
             _ => false,
         });
@@ -96,7 +96,7 @@ impl<'a> Parser<'a> {
             Token::For => self.parse_for_loop(),
             Token::LeftBrace => {
                 self.next();
-                let mut stmts: Progam = vec![];
+                let mut stmts: Program = vec![];
                 while self.current != Token::RightBrace {
                     match self.parse_stmt() {
                         Some(stmt) => {
@@ -278,7 +278,7 @@ impl<'a> Parser<'a> {
 
     fn parse_block(&mut self) -> Option<BlockStmt> {
         self.next();
-        let mut stmts: Progam = vec![];
+        let mut stmts: Program = vec![];
         while self.current != Token::RightBrace {
             match self.parse_stmt() {
                 Some(stmt) => {
@@ -313,9 +313,9 @@ impl<'a> Parser<'a> {
             return None;
         }
         self.next();
-        let then_branch: Progam = self.parse_block().unwrap();
-        let mut elseif: Vec<(Box<ExprType>, Progam)> = vec![];
-        let mut else_branch: Progam = vec![];
+        let then_branch: Program = self.parse_block().unwrap();
+        let mut elseif: Vec<(Box<ExprType>, Program)> = vec![];
+        let mut else_branch: Program = vec![];
 
         while self.current == Token::Else && self.next == Token::If {
             self.next();
@@ -920,9 +920,9 @@ mod test {
         let input = "(24 * -74 / (61 * 77))".to_string();
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
-        println!("{:?}", progam[0]);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
+        println!("{:?}", program[0]);
     }
 
     #[test]
@@ -930,10 +930,10 @@ mod test {
         let input = "16 * 38 / 58".to_string();
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         assert_eq!(
-            progam,
+            program,
             vec![Stmt::Expr(ExprType::InfixExpr(
                 Box::new(ExprType::InfixExpr(
                     Box::new(ExprType::Literal(Literal::Number(16.0))),
@@ -951,10 +951,10 @@ mod test {
         let input = "(11 * -77 / (98 * 67))".to_string();
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         // assert_eq!(
-        //     progam,
+        //     program,
         //     vec![Stmt::Expr(ExprType::InfixExpr(
         //         Box::new(ExprType::InfixExpr(
         //             Box::new(ExprType::Literal(Literal::Number(11.0))),
@@ -972,10 +972,10 @@ mod test {
         let input = "var a = 10; var b = 20; var c = a - -b;".to_string();
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 3);
+        let program = parse.parse();
+        assert_eq!(program.len(), 3);
         assert_eq!(
-            progam,
+            program,
             vec![
                 Stmt::Var(
                     Ident(String::from("a")),
@@ -1005,10 +1005,10 @@ mod test {
         let input = "!true";
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         assert_eq!(
-            progam,
+            program,
             vec![Stmt::Expr(ExprType::PrefixExpr(
                 Token::Bang,
                 Box::new(ExprType::Literal(Literal::Bool(true)))
@@ -1021,10 +1021,10 @@ mod test {
         let input = "(\"foo\")";
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         assert_eq!(
-            progam,
+            program,
             vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(
                 ExprType::Literal(Literal::String(String::from("foo")))
             )))]
@@ -1036,10 +1036,10 @@ mod test {
         let input = "(nil)";
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         assert_eq!(
-            progam,
+            program,
             vec![Stmt::Expr(ExprType::GroupingExpr(Box::new(
                 ExprType::Literal(Literal::Nil)
             )))]
@@ -1051,10 +1051,10 @@ mod test {
         let input = "52 + 80 - 94";
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         assert_eq!(
-            progam,
+            program,
             vec![Stmt::Expr(ExprType::InfixExpr(
                 Box::new(ExprType::InfixExpr(
                     Box::new(ExprType::Literal(Literal::Number(52.0))),
@@ -1072,10 +1072,10 @@ mod test {
         let input = "(-43 + 95) * (68 * 80) / (55 + 75)";
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         assert_eq!(
-            progam,
+            program,
             vec![Stmt::Expr(ExprType::InfixExpr(
                 Box::new(ExprType::InfixExpr(
                     Box::new(ExprType::InfixExpr(
@@ -1112,10 +1112,10 @@ mod test {
         let input = "83 < 99 < 115";
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
-        assert_eq!(progam.len(), 1);
+        let program = parse.parse();
+        assert_eq!(program.len(), 1);
         assert_eq!(
-            progam,
+            program,
             vec![Stmt::Expr(ExprType::InfixExpr(
                 Box::new(ExprType::InfixExpr(
                     Box::new(ExprType::Literal(Literal::Number(83.0))),
@@ -1133,10 +1133,10 @@ mod test {
         let input = "(foo";
         let lex: Lexing<'_> = Lexing::new(&input);
         let mut parse = Parser::new(lex);
-        let progam = parse.parse();
+        let program = parse.parse();
         for error in parse.lex.errors {
             eprintln!("{}", error);
         }
-        assert_eq!(progam.len(), 0);
+        assert_eq!(program.len(), 0);
     }
 }

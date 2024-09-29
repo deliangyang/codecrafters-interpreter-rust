@@ -1,19 +1,19 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use crate::{
-    ast::{self, Progam, Stmt},
+    ast::{self, Program, Stmt},
     lexer::Lexing,
     parser::Parser,
 };
 
 pub struct Imports {
-    imports: HashMap<String, ast::Progam>,
-    program: ast::Progam,
+    imports: HashMap<String, ast::Program>,
+    program: ast::Program,
     current_dir: std::path::PathBuf,
 }
 
 impl Imports {
-    pub fn new(program: ast::Progam, current_dir: PathBuf) -> Self {
+    pub fn new(program: ast::Program, current_dir: PathBuf) -> Self {
         Imports {
             imports: HashMap::new(),
             program,
@@ -21,7 +21,7 @@ impl Imports {
         }
     }
 
-    pub fn load(&mut self) -> Progam{
+    pub fn load(&mut self) -> Program{
         let imports = self.load_all(self.program.clone());
         if let Some(imports) = imports {
             for (k, v) in imports {
@@ -36,8 +36,8 @@ impl Imports {
         progs
     }
 
-    fn load_all(&mut self, progam: ast::Progam) -> Option<HashMap<String, Progam>> {
-        let imports = progam.iter().filter(|stmt| match stmt {
+    fn load_all(&mut self, program: ast::Program) -> Option<HashMap<String, Program>> {
+        let imports = program.iter().filter(|stmt| match stmt {
             Stmt::Import(_) => true,
             _ => false,
         });
@@ -77,11 +77,11 @@ impl Imports {
         Some(progs)
     }
 
-    fn insert(&mut self, name: String, program: ast::Progam) {
+    fn insert(&mut self, name: String, program: ast::Program) {
         self.imports.insert(name, program);
     }
 
-    pub fn get(&self, name: &str) -> Option<&ast::Progam> {
+    pub fn get(&self, name: &str) -> Option<&ast::Program> {
         self.imports.get(name)
     }
 }

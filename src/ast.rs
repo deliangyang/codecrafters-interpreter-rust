@@ -13,7 +13,7 @@ impl Display for Ident {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Blank,
-    Var(Ident, ExprType),
+    Var(Ident, ExprType),       // var x = 1;
     Expr(ExprType),
     Block(Vec<Stmt>),
     Return(ExprType),
@@ -139,7 +139,7 @@ impl Display for Stmt {
 
 pub type BlockStmt = Vec<Stmt>;
 
-pub type Progam = BlockStmt;
+pub type Program = BlockStmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Literal {

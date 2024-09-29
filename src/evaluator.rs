@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, process::exit, rc::Rc};
 
 use crate::{
-    ast::{ExprType, Literal, Progam, Stmt},
+    ast::{ExprType, Literal, Program, Stmt},
     builtins,
     envs::Env,
     objects::Object,
@@ -10,13 +10,13 @@ use crate::{
 
 pub struct Evaluator {
     output: bool,
-    pub ast: Progam,
+    pub ast: Program,
     builtins: HashMap<String, Object>,
     envs: Rc<RefCell<Env>>,
 }
 
 impl Evaluator {
-    pub fn new(ast: Progam, output: bool) -> Self {
+    pub fn new(ast: Program, output: bool) -> Self {
         Self {
             ast: ast,
             builtins: builtins::new_builtins(),

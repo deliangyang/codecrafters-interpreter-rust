@@ -7,3 +7,7 @@ pub mod objects;
 pub mod builtins;
 pub mod envs;
 pub mod imports;
+pub mod compiler;
+pub mod opcode;
+pub mod symbol;
+pub mod vm;

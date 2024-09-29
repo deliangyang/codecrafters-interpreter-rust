@@ -4,13 +4,13 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::process::exit;
 
+use codecrafters_interpreter::compiler::Compiler;
 use codecrafters_interpreter::evaluator::Evaluator;
 use codecrafters_interpreter::imports::Imports;
-use codecrafters_interpreter::token::Token;
 use codecrafters_interpreter::lexer::Lexing;
 use codecrafters_interpreter::parser::Parser;
-
-
+use codecrafters_interpreter::token::Token;
+use codecrafters_interpreter::vm::VM;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,6 +23,30 @@ fn main() {
     let filename = &args[2];
 
     match command.as_str() {
+        "compile" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
+                String::new()
+            });
+
+            // Uncomment this block to pass the first stage
+            if !file_contents.is_empty() {
+                let lex = Lexing::new(&file_contents);
+                let mut parse = Parser::new(lex);
+                let program = parse.parse();
+                if parse.has_errors() {
+                    exit(65);
+                }
+                let mut compile = Compiler::new(program);
+                compile.compile();
+                let mut vm = VM::new();
+                vm.define_constants(compile.constants);
+                let result = vm.run(compile.instructions);
+                println!("result: {:?}", result);
+            } else {
+                println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
+            }
+        }
         "parse" => {
             let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
                 writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
