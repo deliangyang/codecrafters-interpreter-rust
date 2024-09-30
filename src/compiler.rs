@@ -22,7 +22,10 @@ impl Compiler {
         let symbols = Rc::new(RefCell::new(SymbolTable::new()));
         let mut constants = Vec::new();
         let builtins = builtins::new_builtins();
-        for (k, func) in builtins.iter() {
+        let mut keys = builtins.keys().collect::<Vec<&String>>();
+        keys.sort();
+        for k in keys {
+            let func = builtins.get(k).unwrap().clone();
             symbols.borrow_mut().define(k.clone());
             constants.push(func.clone());
         }
