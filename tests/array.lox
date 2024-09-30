@@ -5,10 +5,17 @@ print a[1];
 print a[2];
 print a[3];
 print a[4];
-print "--------\"---------";
+println("--------\"---------");
 
-print '------------------len(a):----------------\'"-------';
+println('------------------len(a):----------------\'"-------');
 
 for (var i = 0; i < len(a); i = i + 1) {
     print a[i];
 }
+
+assert a[0] == 1;
+assert a[1] == 2;
+assert a[2] == 3;
+assert a[3] == 4;
+assert a[4] == 5;
+assert len(a) == 5;
