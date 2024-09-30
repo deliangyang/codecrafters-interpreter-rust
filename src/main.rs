@@ -43,7 +43,12 @@ fn main() {
             let mut compile = Compiler::new(program);
             compile.compile();
 
-            println!("constants:");
+            println!("symbols:");
+            for (i, symbol) in compile.symbols.borrow().store.iter().enumerate() {
+                println!("\t{:04} {:?}", i, symbol);
+            }
+
+            println!("\nconstants:");
             for (i, constant) in compile.constants.iter().enumerate() {
                 println!("\t{:04} {:?}", i, constant);
             }

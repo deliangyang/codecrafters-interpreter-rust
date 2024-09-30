@@ -1,5 +1,3 @@
-
-
 #[derive(Debug)]
 pub enum Opcode {
     Add,

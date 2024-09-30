@@ -1,2 +1,5 @@
 var a = 1 + 2;
-print a;
+println(a);
+
+var b = 1 + 2 * 3;
+println(b);

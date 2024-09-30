@@ -26,6 +26,7 @@ pub fn new_builtins() -> HashMap<String, Object> {
     builtin_insert!(builtins, "is_number", 1, is_number);
     builtin_insert!(builtins, "strval", 1, strval);
     builtin_insert!(builtins, "trim", 1, trim);
+    builtin_insert!(builtins, "type", 1, x_type);
     builtins
 }
 
@@ -43,6 +44,7 @@ fn len(args: Vec<Object>) -> Object {
     match &args[0] {
         Object::String(s) => Object::Number(s.len() as f64),
         Object::Array(a) => Object::Number(a.len() as f64),
+        Object::Hash(h) => Object::Number(h.borrow().len() as f64),
         _ => Object::Nil,
     }
 }
@@ -171,5 +173,25 @@ fn trim(args: Vec<Object>) -> Object {
         Object::String(s.trim().to_string())
     } else {
         Object::Nil
+    }
+}
+
+fn x_type(args: Vec<Object>) -> Object {
+    if args.len() != 1 {
+        return Object::Nil;
+    }
+    match &args[0] {
+        Object::String(_) => Object::String("string".to_string()),
+        Object::Number(_) => Object::String("number".to_string()),
+        Object::Boolean(_) => Object::String("boolean".to_string()),
+        Object::Nil => Object::String("nil".to_string()),
+        Object::Array(_) => Object::String("array".to_string()),
+        Object::Hash(_) => Object::String("object".to_string()),
+        Object::Index(_) => Object::String("number".to_string()),
+        Object::Builtin(_, _, _) => Object::String("builtin".to_string()),
+        Object::Function(_, _) => Object::String("function".to_string()),
+        Object::ReturnValue(_) => Object::String("return_value".to_string()),
+        Object::Class(_, _) => Object::String("class".to_string()),
+        Object::ClassInstance { .. } => Object::String("class_instance".to_string()),
     }
 }

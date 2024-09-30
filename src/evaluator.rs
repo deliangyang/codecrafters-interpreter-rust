@@ -509,15 +509,15 @@ impl Evaluator {
                     }
                     Token::Plus => {
                         if let Object::Number(left) = left.clone().unwrap() {
-                            if let Object::Number(right) = right.unwrap() {
+                            if let Object::Number(right) = right.clone().unwrap() {
                                 return Some(Object::Number(left + right));
                             }
-                        } else if let Object::String(left) = left.unwrap() {
-                            if let Object::String(right) = right.unwrap() {
+                        } else if let Object::String(left) = left.clone().unwrap() {
+                            if let Object::String(right) = right.clone().unwrap() {
                                 return Some(Object::String(left + &right));
                             }
                         }
-                        exit(70);
+                        panic!("token plus not found {:?} {:?}", left, right);
                     }
                     Token::And => {
                         if let Object::Boolean(left) = left.unwrap() {

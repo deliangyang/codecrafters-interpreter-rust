@@ -13,6 +13,9 @@ impl Symbol {
     }
 }
 
+// SymbolTable is a struct that holds a HashMap of symbols and a reference to an outer SymbolTable.
+// It also has a num_definitions field that keeps track of the number of symbols defined in the table.
+#[derive(Clone, Debug)]
 pub struct SymbolTable {
     pub outer: Option<Box<SymbolTable>>,
     pub store: HashMap<String, Symbol>,

@@ -125,6 +125,44 @@ class Json
 
 }
 
+fun json_encode(value) {
+    if (type(value) == "number") {
+        return strval(value);
+    } else if (type(value) == "string") {
+        return '"' + value + '"';
+    } else if (type(value) == "array") {
+        var result = "[";
+        for (var i = 0; i < len(value); i = i + 1) {
+            result = result + json_encode(value[i]);
+            if (i < len(value) - 1) {
+                result = result + ", ";
+            }
+        }
+        return result + "]";
+    } else if (type(value) == "object") {
+        var result = "{";
+        var i = 0;
+        for (var key in value) {
+            result = result + '"' + key + '":' + json_encode(value[key]);
+            if (i < len(value) - 1) {
+                result = result + ",";
+            }
+            i = i + 1;
+        }
+        return result + "}";
+    } else if (type(value) == "nil") {
+        return "null";
+    } else if (type(value) == "boolean") {
+        if (value) {
+            return "true";
+        } else {
+            return "false";
+        }
+    }
+    return "null";
+}
+
+
 var json = new Json('"hello world"');
 println(typeis(json.decode()));
 
@@ -154,4 +192,8 @@ println('result["key4"] type is: ', typeis(result["key4"]));
 println('result["key3"] type is: ', typeis(result["key3"]));
 
 
+println('json_encode([1, 2, 3, 4, 5]): ', json_encode([1, 2, 3, 4, 5]));
 
+var x = {"key": "value", "true": true, "false": false, "key2": 1, "key3": {"key4": "value4"}, "key4": [1, 2, 3, 4, 5]};
+println(x);
+println('decode json', json_encode(x));

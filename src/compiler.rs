@@ -1,10 +1,11 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{ExprType, Literal, Program, Stmt},
     builtins,
     objects::Object,
     opcode::Opcode,
+    symbol::SymbolTable,
     token::Token,
 };
 
@@ -12,16 +13,26 @@ pub struct Compiler {
     program: Program,
     pub constants: Vec<Object>,
     pub instructions: Vec<Opcode>,
-    builtins: HashMap<String, Object>,
+    pub builtins: HashMap<String, Object>,
+    pub symbols: Rc<RefCell<SymbolTable>>,
 }
 
 impl Compiler {
     pub fn new(program: Program) -> Compiler {
+        let symbols = Rc::new(RefCell::new(SymbolTable::new()));
+        let mut constants = Vec::new();
+        let builtins = builtins::new_builtins();
+        for (k, func) in builtins.iter() {
+            symbols.borrow_mut().define(k.clone());
+            constants.push(func.clone());
+        }
+
         Compiler {
             program,
-            constants: Vec::new(),
+            constants,
             instructions: Vec::new(),
             builtins: builtins::new_builtins(),
+            symbols: symbols,
         }
     }
 
@@ -38,7 +49,8 @@ impl Compiler {
             }
             Stmt::Var(ident, expr) => {
                 self.compile_expression(expr);
-                self.emit(Opcode::DefineGlobal(ident.0.clone()));
+                let symbol = self.symbols.borrow_mut().define(ident.0.clone());
+                self.emit(Opcode::SetGlobal(symbol.index));
             }
             Stmt::Block(stmts) => {
                 for stmt in stmts.iter() {
@@ -56,6 +68,7 @@ impl Compiler {
                 self.compile_expression(right);
                 match op {
                     Token::Plus => self.emit(Opcode::Add),
+                    Token::Star => self.emit(Opcode::Multiply),
                     _ => unimplemented!(),
                 }
             }
@@ -87,20 +100,25 @@ impl Compiler {
                 self.emit_load_constant(index);
             }
             ExprType::Ident(ident) => {
-                self.emit(Opcode::GetGlobal(0));
+                let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
+                if symbol.is_none() {
+                    unimplemented!("Symbol not found: {:?}", ident);
+                }
+                self.emit(Opcode::SetGlobal(symbol.unwrap().index));
             }
             ExprType::Call { callee, args } => {
-                let func = match callee.as_ref() {
+                match callee.as_ref() {
                     ExprType::Ident(ident) => {
-                        if let Some(builtin) = self.builtins.get(&ident.0) {
-                            builtin.clone()
-                        } else {
-                            Object::Nil
+                        if self.builtins.contains_key(&ident.0) {
+                            let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
+                            let index = symbol.unwrap().index;
+                            self.constants.push(Object::Index(index));
+                            self.emit(Opcode::GetGlobal(index));
                         }
                     }
-                    _ => Object::Nil,
+                    _ => unimplemented!("Callee not implemented: {:?}", callee),
                 };
-                self.constants.push(func);
+
                 for arg in args.iter() {
                     self.compile_expression(arg);
                 }
