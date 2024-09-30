@@ -107,7 +107,7 @@ impl Compiler {
                 if symbol.is_none() {
                     unimplemented!("Symbol not found: {:?}", ident);
                 }
-                self.emit(Opcode::SetGlobal(symbol.unwrap().index));
+                self.emit(Opcode::GetGlobal(symbol.unwrap().index));
             }
             ExprType::Call { callee, args } => {
                 match callee.as_ref() {
@@ -115,8 +115,7 @@ impl Compiler {
                         if self.builtins.contains_key(&ident.0) {
                             let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
                             let index = symbol.unwrap().index;
-                            self.constants.push(Object::Index(index));
-                            self.emit(Opcode::GetGlobal(index));
+                            self.emit(Opcode::GetBuiltin(index));
                         }
                     }
                     _ => unimplemented!("Callee not implemented: {:?}", callee),
@@ -125,7 +124,6 @@ impl Compiler {
                 for arg in args.iter() {
                     self.compile_expression(arg);
                 }
-                self.compile_expression(callee);
                 self.emit(Opcode::Call(args.len()));
             }
             _ => unimplemented!("Expression not implemented: {:?}", expr),

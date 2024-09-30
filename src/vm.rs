@@ -6,7 +6,7 @@ pub struct VM {
     globals: Vec<Object>,
 }
 
-// const NIL: Object = Object::Nil;
+const NIL: Object = Object::Nil;
 // const TRUE: Object = Object::Boolean(true);
 // const FALSE: Object = Object::Boolean(false);
 
@@ -17,7 +17,7 @@ impl VM {
         VM {
             constants: Vec::new(),
             stack: Vec::new(),
-            globals: vec![Object::Nil; GLOBALS_SIZE],
+            globals: vec![NIL; GLOBALS_SIZE],
         }
     }
 
@@ -27,10 +27,11 @@ impl VM {
                 Opcode::Add => {
                     let right = self.stack.pop().unwrap();
                     let left = self.stack.pop().unwrap();
-                    self.stack.push(Object::Number(match (left, right) {
+                    let result = Object::Number(match (left, right) {
                         (Object::Number(l), Object::Number(r)) => l + r,
                         _ => 0.0,
-                    }));
+                    });
+                    self.stack.push(result);
                 }
                 Opcode::LoadConstant(index) => {
                     self.stack.push(self.constants[index].clone());
@@ -65,7 +66,6 @@ impl VM {
                         let obj = self.stack.pop().unwrap();
                         print!("{:?} ", obj);
                     }
-                    self.stack.push(Object::Nil);
                 }
                 Opcode::DefineGlobal(s) => {
                     let obj = self.stack.pop().unwrap();
@@ -78,17 +78,15 @@ impl VM {
                     let obj = self.stack.pop().unwrap();
                     self.globals[index] = obj;
                 }
+                Opcode::GetBuiltin(index) => {
+                    self.stack.push(self.constants[index].clone());
+                }
                 Opcode::Call(n) => {
                     let mut args = Vec::new();
                     for _ in 0..n {
                         args.push(self.stack.pop().unwrap());
                     }
-                    let func_index = self.stack.pop().unwrap();
-                    let func_index = match func_index {
-                        Object::Index(i) => i,
-                        _ => 0,
-                    };
-                    let func = self.constants[func_index].clone();
+                    let func = self.stack.pop().unwrap();
                     match func {
                         Object::Builtin(_, _, f) => {
                             let result = f(args);

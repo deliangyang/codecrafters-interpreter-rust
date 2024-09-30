@@ -3,3 +3,13 @@ println(a);
 
 var b = 1 + 2 * 3;
 println(b);
+
+
+println("--------");
+println(true);
+println(false);
+
+println("--------");
+
+var c = 1 + 2 * 3 + 4;
+println(c);
