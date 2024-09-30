@@ -1,9 +1,8 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use crate::{
     ast::{ExprType, Literal, Program, Stmt},
     builtins,
-    envs::{self, Env},
     objects::Object,
     opcode::Opcode,
     token::Token,
@@ -13,7 +12,6 @@ pub struct Compiler {
     program: Program,
     pub constants: Vec<Object>,
     pub instructions: Vec<Opcode>,
-    envs: Rc<RefCell<envs::Env>>,
     builtins: HashMap<String, Object>,
 }
 
@@ -23,7 +21,6 @@ impl Compiler {
             program,
             constants: Vec::new(),
             instructions: Vec::new(),
-            envs: Rc::new(RefCell::new(Env::new())),
             builtins: builtins::new_builtins(),
         }
     }
@@ -48,7 +45,7 @@ impl Compiler {
                     self.compile_statement(stmt);
                 }
             }
-            _ => unimplemented!(),
+            _ => unimplemented!("Statement not implemented: {:?}", stmt),
         }
     }
 

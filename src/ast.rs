@@ -39,6 +39,10 @@ pub enum Stmt {
         block: BlockStmt,
     },
     ClassInit(Ident, Vec<ExprType>),
+    Assert {
+        condition: Box<ExprType>,
+        message: Box<ExprType>,
+    },
 }
 
 impl Display for Stmt {
@@ -132,6 +136,9 @@ impl Display for Stmt {
                     writeln!(f, "\t{}", stmt)?;
                 }
                 write!(f, "}}")
+            }
+            Stmt::Assert { condition, message } => {
+                write!(f, "assert {} {}", condition, message)
             }
         }
     }
@@ -375,7 +382,7 @@ impl Display for ExprType {
             ExprType::ClassGet { callee, prop } => write!(f, "{}.{}", callee, prop),
             ExprType::IndexExpr(left, right) => {
                 write!(f, "{}[{}]", left, right)
-            }
+            },
         }
     }
 }

@@ -44,6 +44,7 @@ impl<'a> Lexing<'a> {
                 ("new", Token::New),
                 ("in", Token::In),
                 ("import", Token::Import),
+                ("assert", Token::Assert),
             ]),
         }
     }

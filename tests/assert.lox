@@ -1,0 +1,10 @@
+
+var a = 3;
+var b = 4;
+
+// assert a == b, "a is not equal to b";
+
+assert a > b;
+
+assert a != b;
+

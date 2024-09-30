@@ -75,6 +75,8 @@ pub enum Token {
     GreaterEqual, // >=
 
     Comment(String), // //
+
+    Assert, // assert
 }
 
 impl Display for Token {
@@ -146,7 +148,8 @@ impl Display for Token {
                 } else {
                     write!(f, "NUMBER {} {}.0", n, num)
                 }
-            }
+            },
+            Token::Assert => write!(f, "ASSERT assert null"),
         }
     }
 }

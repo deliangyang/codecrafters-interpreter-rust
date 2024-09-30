@@ -168,6 +168,15 @@ impl Evaluator {
                 }
             }
             Stmt::Import(_) => {}
+            Stmt::Assert { condition, message } => {
+                let result = self.evaluate_expr(condition).unwrap();
+                if let Object::Boolean(result) = result {
+                    if !result {
+                        println!("Assertion failed: {} {}", condition, message);
+                        exit(70);
+                    }
+                }
+            }
             _ => unimplemented!(),
         }
         None

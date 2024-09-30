@@ -94,6 +94,7 @@ impl<'a> Parser<'a> {
             Token::While => self.parse_while(),
             Token::Class => self.parse_class(),
             Token::For => self.parse_for_loop(),
+            Token::Assert => self.parse_assert_expr(),
             Token::LeftBrace => {
                 self.next();
                 let mut stmts: Program = vec![];
@@ -576,7 +577,7 @@ impl<'a> Parser<'a> {
                 return Some(ExprType::PrintExpr(Box::new(exprs)));
             }
             _ => {
-                println!("Unexpected token: {:?}", self.current);
+                println!("Unexpected token in parse_expr: {:?}", self.current);
                 self.lex
                     .log_error(self.current.clone(), "Expect expression");
                 return None;
@@ -827,6 +828,38 @@ impl<'a> Parser<'a> {
         self.lex
             .log_error(self.current.clone(), "Expect expression");
         return None;
+    }
+
+    fn parse_assert_expr(&mut self) -> Option<Stmt> {
+        self.next();
+        let expr = self.parse_expr(Precedence::Lowest);
+        if self.current == Token::Comma {
+            self.next();
+            if let Token::String(s) = self.current.clone() {
+                self.next();
+
+                if self.current != Token::Semicolon {
+                    self.lex
+                        .log_error(self.current.clone(), "Expect ';' after assert message");
+                    return None;
+                }
+                self.next();
+                return Some(Stmt::Assert {
+                    condition: Box::new(expr.unwrap()),
+                    message: Box::new(ExprType::Literal(Literal::String(s))),
+                });
+            }
+        } else if self.current != Token::Semicolon {
+            self.lex
+                .log_error(self.current.clone(), "Expect ';' after assert");
+            return None;
+        }
+
+        self.next();
+        Some(Stmt::Assert {
+            condition: Box::new(expr.unwrap()),
+            message: Box::new(ExprType::Literal(Literal::String("".to_string()))),
+        })
     }
 
     fn next(&mut self) -> Token {
