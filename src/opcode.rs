@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Opcode {
     Add,
     LoadConstant(usize),
@@ -27,6 +27,7 @@ pub enum Opcode {
     True,
     False,
     Equal,
+    JumpIfFalse(usize),
     NotEqual,
     GreaterThan,
     LessThan,

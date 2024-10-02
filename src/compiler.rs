@@ -67,6 +67,20 @@ impl Compiler {
     fn compile_expression(&mut self, expr: &ExprType) {
         match expr {
             ExprType::InfixExpr(left, op, right) => {
+                if *op == Token::Equal {
+                    match left.as_ref() {
+                        ExprType::Ident(ident) => {
+                            let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
+                            if symbol.is_none() {
+                                unimplemented!("Symbol not found: {:?}", ident);
+                            }
+                            self.compile_expression(right);
+                            self.emit(Opcode::SetGlobal(symbol.unwrap().index));
+                            return;
+                        }
+                        _ => unimplemented!("Left side of assignment not implemented: {:?}", left),
+                    }
+                }
                 self.compile_expression(left);
                 self.compile_expression(right);
                 match op {
@@ -75,7 +89,9 @@ impl Compiler {
                     Token::Slash => self.emit(Opcode::Divide),
                     Token::Mod => self.emit(Opcode::Mod),
                     Token::Minus => self.emit(Opcode::Minus),
-                    _ => unimplemented!(),
+                    Token::Greater => self.emit(Opcode::GreaterThan),
+                    Token::Less => self.emit(Opcode::LessThan),
+                    _ => unimplemented!("Operator not implemented: {:?}", op),
                 }
             }
             ExprType::PrintExpr(expr) => {
@@ -91,7 +107,7 @@ impl Compiler {
                         self.emit(Opcode::LoadConstant(0));
                         self.emit(Opcode::Nagetive);
                     }
-                    _ => unimplemented!(),
+                    _ => unimplemented!("prefix expr Operator not implemented: {:?}", op),
                 }
             }
             ExprType::Literal(lit) => {
@@ -128,6 +144,42 @@ impl Compiler {
                     self.compile_expression(arg);
                 }
                 self.emit(Opcode::Call(args.len()));
+            }
+            ExprType::If {
+                condition,
+                elseif,
+                then_branch,
+                else_branch,
+            } => {
+                self.compile_expression(condition);
+                let jump_not_truthy = self.instructions.len();
+                self.emit(Opcode::JumpIfFalse(0));
+                self.compile_statement(&Stmt::Block(then_branch.clone()));
+
+                let else_if_pos = self.instructions.len();
+                if else_branch.len() > 0 {
+                    self.emit(Opcode::Jump(0));
+                }
+
+                let jump = self.instructions.len();
+                self.emit(Opcode::Jump(0));
+                self.instructions[jump_not_truthy] = Opcode::JumpIfFalse(jump);
+                for (condition, block) in elseif.iter() {
+                    self.compile_expression(condition);
+                    let jump_not_truthy = self.instructions.len();
+                    self.emit(Opcode::JumpIfFalse(0));
+                    self.compile_statement(&Stmt::Block(block.clone()));
+                    let jump = self.instructions.len();
+                    self.emit(Opcode::Jump(0));
+                    self.instructions[jump_not_truthy] = Opcode::JumpIfFalse(jump);
+                }
+
+                if else_branch.len() > 0 {
+                    self.compile_statement(&Stmt::Block(else_branch.clone()));
+                    let pos = self.instructions.len();
+                    self.instructions[else_if_pos] = Opcode::Jump(pos);
+                }
+                
             }
             _ => unimplemented!("Expression not implemented: {:?}", expr),
         }
