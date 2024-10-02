@@ -33,6 +33,7 @@ pub enum Opcode {
     GreaterThanEqual,
     LessThanEqual,
     Minus,
+    Mod,
     Divide,
     Multiply,
     Remainder,

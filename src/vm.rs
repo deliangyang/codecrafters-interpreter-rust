@@ -24,13 +24,20 @@ impl VM {
     pub fn run(&mut self, instructions: Vec<Opcode>) -> Object {
         for instruction in instructions {
             match instruction {
-                Opcode::Add => {
+                Opcode::Add | Opcode::Divide | Opcode::Minus | Opcode::Multiply | Opcode::Mod => {
                     let right = self.stack.pop().unwrap();
                     let left = self.stack.pop().unwrap();
-                    let result = Object::Number(match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => l + r,
-                        _ => 0.0,
-                    });
+                    let result = match (left, right) {
+                        (Object::Number(l), Object::Number(r)) => match instruction {
+                            Opcode::Add => Object::Number(l + r),
+                            Opcode::Divide => Object::Number(l / r),
+                            Opcode::Minus => Object::Number(l - r),
+                            Opcode::Multiply => Object::Number(l * r),
+                            Opcode::Mod => Object::Number(l % r),
+                            _ => Object::Nil,
+                        },
+                        _ => Object::Nil,
+                    };
                     self.stack.push(result);
                 }
                 Opcode::LoadConstant(index) => {
@@ -38,14 +45,6 @@ impl VM {
                 }
                 Opcode::Pop => {
                     self.stack.pop().unwrap();
-                }
-                Opcode::Multiply => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    self.stack.push(Object::Number(match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => l * r,
-                        _ => 0.0,
-                    }));
                 }
                 Opcode::Abs => {
                     let obj = self.stack.pop().unwrap();

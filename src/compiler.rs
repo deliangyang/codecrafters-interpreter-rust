@@ -72,6 +72,9 @@ impl Compiler {
                 match op {
                     Token::Plus => self.emit(Opcode::Add),
                     Token::Star => self.emit(Opcode::Multiply),
+                    Token::Slash => self.emit(Opcode::Divide),
+                    Token::Mod => self.emit(Opcode::Mod),
+                    Token::Minus => self.emit(Opcode::Minus),
                     _ => unimplemented!(),
                 }
             }
