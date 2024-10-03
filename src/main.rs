@@ -8,6 +8,7 @@ use codecrafters_interpreter::compiler::Compiler;
 use codecrafters_interpreter::evaluator::Evaluator;
 use codecrafters_interpreter::imports::Imports;
 use codecrafters_interpreter::lexer::Lexing;
+use codecrafters_interpreter::opcode::Opcode;
 use codecrafters_interpreter::parser::Parser;
 use codecrafters_interpreter::token::Token;
 use codecrafters_interpreter::vm::VM;
@@ -55,7 +56,15 @@ fn main() {
 
             println!("\ninstructions:");
             for (i, instruction) in compile.instructions.iter().enumerate() {
-                println!("\t{:04} {:?}", i, instruction);
+                match instruction {
+                    Opcode::GetBuiltin(index) => {
+                        println!("\t{:04} {:?}\t\t# {:020}", i, instruction, compile.builtins.get_name(*index).unwrap());
+                    }
+                    Opcode::LoadConstant(index) => {
+                        println!("\t{:04} {:?}\t\t# {:?}", i, instruction, compile.constants[*index]);
+                    }
+                    _ =>  println!("\t{:04} {:?}", i, instruction)
+                }
             }
 
         }

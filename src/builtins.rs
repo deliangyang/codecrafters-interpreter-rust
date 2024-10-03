@@ -2,6 +2,56 @@ use std::collections::HashMap;
 
 use crate::objects::Object;
 
+pub struct Builtins {
+    pub builtins: HashMap<String, Object>,
+    sorted: HashMap<String, usize>,
+    indexs: Vec<String>,
+}
+
+impl Builtins {
+    
+    pub fn new() -> Self {
+        let builtins = new_builtins();
+        let mut sorted = HashMap::new();
+        let mut keys = builtins.keys().collect::<Vec<&String>>();
+        let mut indexs = vec![];
+        keys.sort();
+        for (i, k) in keys.iter().enumerate() {
+            sorted.insert(k.to_string(), i);
+            indexs.push(k.to_string());
+        }
+        Builtins {
+            builtins: builtins,
+            sorted: sorted,
+            indexs: indexs,
+        }
+    }
+
+    pub fn get_index(&self, name: &str) -> Option<usize> {
+        self.sorted.get(name).cloned()
+    }
+
+    pub fn get(&self, name: &str) -> Option<Object> {
+        self.builtins.get(name).cloned()
+    }
+
+    pub fn get_by_index(&self, index: usize) -> Option<Object> {
+        if index < self.indexs.len() {
+            self.builtins.get(&self.indexs[index]).cloned()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_name(&self, index: usize) -> Option<String> {
+        if index < self.indexs.len() {
+            Some(self.indexs[index].clone())
+        } else {
+            None
+        }
+    }
+}
+
 macro_rules! builtin_insert {
     ($builtins:ident, $name:expr, $count: expr, $func:expr) => {
         $builtins.insert(

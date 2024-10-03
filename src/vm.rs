@@ -1,11 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, process::exit, rc::Rc};
 
-use crate::{objects::Object, opcode::Opcode};
+use crate::{builtins::Builtins, objects::Object, opcode::Opcode};
 
 pub struct VM {
     constants: Vec<Object>,
     stack: Vec<Object>,
     globals: Vec<Object>,
+    builtins: Builtins,
     sp: usize, // stack pointer
     ip: usize, // instruction pointer
 }
@@ -22,6 +23,7 @@ impl VM {
             constants: Vec::new(),
             stack: Vec::new(),
             globals: vec![NIL; GLOBALS_SIZE],
+            builtins: Builtins::new(),
             sp: 0,
             ip: 0,
         }
@@ -60,6 +62,7 @@ impl VM {
             | Opcode::Multiply
             | Opcode::Mod
             | Opcode::LessThan
+            | Opcode::EqualEqual
             | Opcode::GreaterThan => {
                 let right = self.pop();
                 let left = self.pop();
@@ -72,20 +75,32 @@ impl VM {
                         Opcode::Mod => Object::Number(l % r),
                         Opcode::GreaterThan => Object::Boolean(l > r),
                         Opcode::LessThan => Object::Boolean(l < r),
+                        Opcode::EqualEqual => Object::Boolean(l == r),
                         _ => Object::Nil,
                     },
                     _ => Object::Nil,
                 };
                 self.push(result);
             }
+            Opcode::Assert(pos) => {
+                let obj = self.pop();
+                if obj == Object::Boolean(false) {
+                    panic!("assert failed");
+                } else {
+                    self.ip = pos - 1;
+                }
+            }
+            Opcode::Exit(code) => {
+                exit(code as i32);
+            }
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    self.ip = pos;
+                    self.ip = pos-1;
                 }
             }
             Opcode::Jump(pos) => {
-                self.ip += pos;
+                self.ip = pos-1;
             }
             Opcode::LoadConstant(index) => {
                 self.push(self.constants[index].clone());
@@ -110,7 +125,7 @@ impl VM {
             Opcode::Print(n) => {
                 for _ in 0..n {
                     let obj = self.pop();
-                    print!("{:?} ", obj);
+                    print!("{} ", obj);
                 }
             }
             Opcode::DefineGlobal(s) => {
@@ -125,13 +140,18 @@ impl VM {
                 self.globals[index] = obj;
             }
             Opcode::GetBuiltin(index) => {
-                self.push(self.constants[index].clone());
+                let obj = self.builtins.get_by_index(index);
+                if obj.is_none() {
+                    unimplemented!("builtin not found: {:?}", index);
+                }
+                self.push(obj.unwrap().clone());
             }
             Opcode::Call(n) => {
                 let mut args = Vec::new();
                 for _ in 0..n {
                     args.push(self.pop());
                 }
+                args.reverse();
                 let func = self.pop();
                 match func {
                     Object::Builtin(_, _, f) => {
@@ -150,6 +170,7 @@ impl VM {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,41 +178,42 @@ mod tests {
 
     #[test]
     fn test_vm() {
-        let lexer = Lexing::new("1+2");
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse();
-        let mut vm = VM::new();
-        let mut compiler = Compiler::new(program);
-        compiler.compile();
-        vm.define_constants(compiler.constants);
-        let result = vm.run(compiler.instructions);
+        let result = test_vm_code("1 + 2;");
         assert_eq!(result, Object::Number(3.0));
     }
 
     #[test]
     fn test_nagetive_number() {
-        let lexer = Lexing::new("-2;");
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse();
-        let mut vm = VM::new();
-        let mut compiler = Compiler::new(program);
-        compiler.compile();
-        println!("{:?}", compiler.instructions);
-        vm.define_constants(compiler.constants);
-        let result = vm.run(compiler.instructions);
+        let result = test_vm_code("-2;");
         assert_eq!(result, Object::Number(-2.0));
     }
 
     #[test]
     fn test_print() {
-        let lexer = Lexing::new("print 1, 2;");
+        let result = test_vm_code("print 1, 2;");
+        assert_eq!(result, Object::Nil);
+    }
+
+    #[test]
+    fn test_println() {
+        let result = test_vm_code("println(1);");
+        assert_eq!(result, Object::Nil);
+    }
+
+    #[test]
+    fn test_println_var() {
+        let result = test_vm_code("var a = 1; println(a);");
+        assert_eq!(result, Object::Nil);
+    }
+
+    fn test_vm_code(code: &str) -> Object {
+        let lexer = Lexing::new(code);
         let mut parser = Parser::new(lexer);
         let program = parser.parse();
         let mut vm = VM::new();
         let mut compiler = Compiler::new(program);
         compiler.compile();
         vm.define_constants(compiler.constants);
-        let result = vm.run(compiler.instructions);
-        assert_eq!(result, Object::Nil);
+        vm.run(compiler.instructions)
     }
 }

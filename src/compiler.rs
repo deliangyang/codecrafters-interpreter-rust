@@ -1,8 +1,8 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     ast::{ExprType, Literal, Program, Stmt},
-    builtins,
+    builtins::Builtins,
     objects::Object,
     opcode::Opcode,
     symbol::SymbolTable,
@@ -13,29 +13,18 @@ pub struct Compiler {
     program: Program,
     pub constants: Vec<Object>,
     pub instructions: Vec<Opcode>,
-    pub builtins: HashMap<String, Object>,
+    pub builtins: Builtins,
     pub symbols: Rc<RefCell<SymbolTable>>,
 }
 
 impl Compiler {
     pub fn new(program: Program) -> Compiler {
-        let symbols = Rc::new(RefCell::new(SymbolTable::new()));
-        let mut constants = Vec::new();
-        let builtins = builtins::new_builtins();
-        let mut keys = builtins.keys().collect::<Vec<&String>>();
-        keys.sort();
-        for k in keys {
-            let func = builtins.get(k).unwrap().clone();
-            symbols.borrow_mut().define(k.clone());
-            constants.push(func.clone());
-        }
-
         Compiler {
             program,
-            constants,
+            constants: Vec::new(),
             instructions: Vec::new(),
-            builtins: builtins::new_builtins(),
-            symbols: symbols,
+            builtins: Builtins::new(),
+            symbols: Rc::new(RefCell::new(SymbolTable::new())),
         }
     }
 
@@ -59,6 +48,22 @@ impl Compiler {
                 for stmt in stmts.iter() {
                     self.compile_statement(stmt);
                 }
+            }
+            Stmt::Assert { condition, message } => {
+                self.compile_expression(condition);
+                let msg = match message.as_ref() {
+                    ExprType::Literal(Literal::String(msg)) => msg,
+                    _ => "",
+                };
+                if msg.is_empty() {
+                    self.emit(Opcode::Assert(0));
+                    return;
+                }
+                let pos = self.emit_return_position(Opcode::Assert(0));
+                self.compile_expression(message);
+                self.emit(Opcode::Print(1));
+                self.emit(Opcode::Exit(3));
+                self.instructions[pos] = Opcode::Assert(self.instructions.len());
             }
             _ => unimplemented!("Statement not implemented: {:?}", stmt),
         }
@@ -91,6 +96,7 @@ impl Compiler {
                     Token::Minus => self.emit(Opcode::Minus),
                     Token::Greater => self.emit(Opcode::GreaterThan),
                     Token::Less => self.emit(Opcode::LessThan),
+                    Token::EqualEqual => self.emit(Opcode::EqualEqual),
                     _ => unimplemented!("Operator not implemented: {:?}", op),
                 }
             }
@@ -104,7 +110,6 @@ impl Compiler {
                 self.compile_expression(expr);
                 match op {
                     Token::Minus => {
-                        self.emit(Opcode::LoadConstant(0));
                         self.emit(Opcode::Nagetive);
                     }
                     _ => unimplemented!("prefix expr Operator not implemented: {:?}", op),
@@ -131,10 +136,9 @@ impl Compiler {
             ExprType::Call { callee, args } => {
                 match callee.as_ref() {
                     ExprType::Ident(ident) => {
-                        if self.builtins.contains_key(&ident.0) {
-                            let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
-                            let index = symbol.unwrap().index;
-                            self.emit(Opcode::GetBuiltin(index));
+                        let index = self.builtins.get_index(ident.0.as_str());
+                        if index.is_some() {
+                            self.emit(Opcode::GetBuiltin(index.unwrap()));
                         }
                     }
                     _ => unimplemented!("Callee not implemented: {:?}", callee),
@@ -151,35 +155,44 @@ impl Compiler {
                 then_branch,
                 else_branch,
             } => {
+                // Compile condition
                 self.compile_expression(condition);
-                let jump_not_truthy = self.instructions.len();
-                self.emit(Opcode::JumpIfFalse(0));
+                // If condition is false, jump to end of if-else
+                let jump_not_truthy = self.emit_return_position(Opcode::JumpIfFalse(0));
                 self.compile_statement(&Stmt::Block(then_branch.clone()));
 
-                let else_if_pos = self.instructions.len();
-                if else_branch.len() > 0 {
-                    self.emit(Opcode::Jump(0));
+                let mut endif = vec![];
+                let exist_else = else_branch.len() > 0;
+
+                if exist_else {
+                    let pos = self.emit_return_position(Opcode::Jump(9999));
+                    endif.push(pos);
                 }
 
                 let jump = self.instructions.len();
-                self.emit(Opcode::Jump(0));
                 self.instructions[jump_not_truthy] = Opcode::JumpIfFalse(jump);
+
                 for (condition, block) in elseif.iter() {
                     self.compile_expression(condition);
-                    let jump_not_truthy = self.instructions.len();
-                    self.emit(Opcode::JumpIfFalse(0));
+                    let jump_not_truthy = self.emit_return_position(Opcode::JumpIfFalse(0));
                     self.compile_statement(&Stmt::Block(block.clone()));
+
+                    if exist_else {
+                        endif.push(self.instructions.len());
+                        self.emit(Opcode::Jump(9999)); // Jump to end of if-else, will be replaced later
+                    }
+
                     let jump = self.instructions.len();
-                    self.emit(Opcode::Jump(0));
                     self.instructions[jump_not_truthy] = Opcode::JumpIfFalse(jump);
                 }
 
-                if else_branch.len() > 0 {
+                if exist_else {
                     self.compile_statement(&Stmt::Block(else_branch.clone()));
-                    let pos = self.instructions.len();
-                    self.instructions[else_if_pos] = Opcode::Jump(pos);
                 }
-                
+
+                for pos in endif.iter() {
+                    self.instructions[*pos] = Opcode::Jump(self.instructions.len());
+                }
             }
             _ => unimplemented!("Expression not implemented: {:?}", expr),
         }
@@ -187,6 +200,12 @@ impl Compiler {
 
     pub fn emit(&mut self, op: Opcode) {
         self.instructions.push(op);
+    }
+
+    pub fn emit_return_position(&mut self, op: Opcode) -> usize {
+        let pos = self.instructions.len();
+        self.instructions.push(op);
+        pos
     }
 
     pub fn emit_load_constant(&mut self, index: usize) {
@@ -206,11 +225,147 @@ mod tests {
 
     #[test]
     fn test_compiler() {
-        let lexer = Lexing::new("1 + 2");
+        let instractions = test_compiler_code("1 + 2;");
+        assert_eq!(instractions.len(), 3);
+        assert_eq!(
+            instractions,
+            vec![
+                Opcode::LoadConstant(0),
+                Opcode::LoadConstant(1),
+                Opcode::Add,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_print() {
+        let ins = test_compiler_code("print 1, 2;");
+        assert_eq!(ins.len(), 3);
+        assert_eq!(
+            ins,
+            vec![
+                Opcode::LoadConstant(0),
+                Opcode::LoadConstant(1),
+                Opcode::Print(2),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_builtin() {
+        let ins = test_compiler_code("len('hello');");
+        let builtins = Builtins::new();
+        assert_eq!(ins.len(), 3);
+        assert_eq!(
+            ins,
+            vec![
+                Opcode::GetBuiltin(builtins.get_index("len").unwrap()),
+                Opcode::LoadConstant(0),
+                Opcode::Call(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_add() {
+        let ins = test_compiler_code("1 + 2;");
+        assert_eq!(ins.len(), 3);
+        assert_eq!(
+            ins,
+            vec![
+                Opcode::LoadConstant(0),
+                Opcode::LoadConstant(1),
+                Opcode::Add,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_if() {
+        let ins = test_compiler_code("if (1 > 2) { print 'yes'; } else { print 'no'; }");
+        let except = vec![
+            Opcode::LoadConstant(0), // 1
+            Opcode::LoadConstant(1), // 2
+            Opcode::GreaterThan,     // 3
+            Opcode::JumpIfFalse(7),  // 4
+            Opcode::LoadConstant(2), // 5
+            Opcode::Print(1),        // 6
+            Opcode::Jump(9),         // 7
+            Opcode::LoadConstant(3), // 8
+            Opcode::Print(1),        // 9
+        ];
+        assert_eq!(ins.len(), except.len());
+        assert_eq!(ins, except);
+    }
+
+    #[test]
+    fn test_if_with_elseif() {
+        let ins = test_compiler_code(
+            "if (1 > 2) { print 'yes'; } else if (1 < 2) { print 'no'; } else { print 'no'; }",
+        );
+        let except = vec![
+            Opcode::LoadConstant(0), // 1
+            Opcode::LoadConstant(1), // 2
+            Opcode::GreaterThan,     // 3
+            Opcode::JumpIfFalse(7),  // 4
+            Opcode::LoadConstant(2), // 5
+            Opcode::Print(1),        // 6
+            Opcode::Jump(16),        // 7
+            Opcode::LoadConstant(3), // 8
+            Opcode::LoadConstant(4), // 9
+            Opcode::LessThan,        // 10
+            Opcode::JumpIfFalse(14), // 11
+            Opcode::LoadConstant(5), // 12
+            Opcode::Print(1),        // 13
+            Opcode::Jump(16),        // 14
+            Opcode::LoadConstant(6), // 15
+            Opcode::Print(1),        // 16
+        ];
+        assert_eq!(ins.len(), except.len());
+        assert_eq!(ins, except);
+    }
+
+    #[test]
+    fn test_assert() {
+        let ins = test_compiler_code("assert 1 > 2, '1 is not greater than 2';");
+        println!("{:?}", ins);
+        let except = vec![
+            Opcode::LoadConstant(0), // 1
+            Opcode::LoadConstant(1), // 2
+            Opcode::GreaterThan,     // 3
+            Opcode::Assert(7),       // 4
+            Opcode::LoadConstant(2), // 5
+            Opcode::Print(1),        // 6
+            Opcode::Exit(3),         // 7
+        ];
+        assert_eq!(ins.len(), except.len());
+        assert_eq!(ins, except);
+    }
+
+    #[test]
+    fn test_assert_with_var() {
+        let ins = test_compiler_code("var a = 1; assert a > 2, '1 is not greater than 2';");
+        let except = vec![
+            Opcode::LoadConstant(0),
+            Opcode::SetGlobal(0),
+            Opcode::GetGlobal(0),    // 1
+            Opcode::LoadConstant(1), // 2
+            Opcode::GreaterThan,     // 3
+            Opcode::Assert(9),       // 4
+            Opcode::LoadConstant(2), // 5
+            Opcode::Print(1),        // 6
+            Opcode::Exit(3),         // 7
+        ];
+        assert_eq!(ins.len(), except.len());
+        assert_eq!(ins, except);
+    }
+
+    fn test_compiler_code(code: &str) -> Vec<Opcode> {
+        let lexer = Lexing::new(code);
         let mut parser = Parser::new(lexer);
         let program = parser.parse();
         let mut compiler = Compiler::new(program);
         compiler.compile();
-        assert_eq!(compiler.instructions.len(), 3);
+        compiler.instructions
     }
 }

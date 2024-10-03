@@ -42,4 +42,7 @@ pub enum Opcode {
     MinusOne,
     PlusOne,
     DefineGlobal(String),
+    Assert(usize),
+    EqualEqual,
+    Exit(usize),
 }

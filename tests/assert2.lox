@@ -1,0 +1,19 @@
+var a = -2;
+var b = 0;
+if (a > 0) {
+  b = 1;
+} else if (a < -3) {
+  b = -4;
+  println("-----+---->")
+} else {
+  b = -2;
+  println("---+--+--+-->")
+}
+
+println('------>', 'b:', b, 'a:', a, 'a < -3:', a < -3);
+
+assert b == -2, "b should be -2";
+
+println("--------done---------");
+
+if (1 > 2) { print 'yes'; } else if (1 < 2) { print 'no'; } else { print 'else no'; }
