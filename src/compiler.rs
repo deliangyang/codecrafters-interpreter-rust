@@ -49,6 +49,17 @@ impl Compiler {
                     self.compile_statement(stmt);
                 }
             }
+            Stmt::For { init, conditions, step, block } => {
+                self.compile_statement(init);
+                let start = self.instructions.len();
+                self.compile_expression(conditions);
+                let jump_not_truthy = self.emit_return_position(Opcode::JumpIfFalse(0));
+                self.compile_statement(&Stmt::Block(block.clone()));
+                self.compile_statement(step);
+                self.emit(Opcode::Jump(start));
+                let end = self.instructions.len();
+                self.instructions[jump_not_truthy] = Opcode::JumpIfFalse(end);
+            }
             Stmt::Assert { condition, message } => {
                 self.compile_expression(condition);
                 let msg = match message.as_ref() {
@@ -97,6 +108,19 @@ impl Compiler {
                     Token::Greater => self.emit(Opcode::GreaterThan),
                     Token::Less => self.emit(Opcode::LessThan),
                     Token::EqualEqual => self.emit(Opcode::EqualEqual),
+                    Token::PlusSelf => {
+                        self.emit(Opcode::Add);
+                        match left.as_ref() {
+                            ExprType::Ident(ident) => {
+                                let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
+                                if symbol.is_none() {
+                                    unimplemented!("Symbol not found: {:?}", ident);
+                                }
+                                self.emit(Opcode::SetGlobal(symbol.unwrap().index));
+                            }
+                            _ => unimplemented!("Left side of assignment not implemented: {:?}", left),
+                        }
+                    }
                     _ => unimplemented!("Operator not implemented: {:?}", op),
                 }
             }

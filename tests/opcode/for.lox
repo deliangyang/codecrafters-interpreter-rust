@@ -1,0 +1,8 @@
+
+for (var i = 0; i < 10; i+=1) {
+    println(i);
+    assert i == i, "i should be i";
+}
+
+
+println("done.");
