@@ -243,5 +243,6 @@ fn x_type(args: Vec<Object>) -> Object {
         Object::ReturnValue(_) => Object::String("return_value".to_string()),
         Object::Class(_, _) => Object::String("class".to_string()),
         Object::ClassInstance { .. } => Object::String("class_instance".to_string()),
+        Object::CompiledFunction { .. } => Object::String("compiled_function".to_string()),
     }
 }

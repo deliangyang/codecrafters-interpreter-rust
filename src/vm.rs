@@ -158,8 +158,15 @@ impl VM {
                         let result = f(args);
                         self.push(result);
                     }
+                    Object::CompiledFunction { instructions, num_locals, num_parameters } => {
+                        
+                    }
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
+            }
+            Opcode::Closure(index, _) => {
+                let obj = self.constants[index].clone();
+                self.push(obj);
             }
             _ => unimplemented!("unimplemented opcode: {:?}", instruction),
         }

@@ -13,6 +13,7 @@ pub struct Compiler {
     program: Program,
     pub constants: Vec<Object>,
     pub instructions: Vec<Opcode>,
+    pre_instructions: Vec<Opcode>,
     pub builtins: Builtins,
     pub symbols: Rc<RefCell<SymbolTable>>,
 }
@@ -24,6 +25,7 @@ impl Compiler {
             constants: Vec::new(),
             instructions: Vec::new(),
             builtins: Builtins::new(),
+            pre_instructions: vec![],
             symbols: Rc::new(RefCell::new(SymbolTable::new())),
         }
     }
@@ -48,6 +50,37 @@ impl Compiler {
                 for stmt in stmts.iter() {
                     self.compile_statement(stmt);
                 }
+            }
+            Stmt::Function(ident, args, body) => {
+                self.enter_scope();
+
+                let symbol = self.symbols.borrow_mut().define(ident.0.clone());
+                self.emit(Opcode::SetGlobal(symbol.index));
+
+                for arg in args.iter() {
+                    let symbol = self.symbols.borrow_mut().define(arg.0.clone());
+                    self.emit(Opcode::SetGlobal(symbol.index));
+                }
+
+                for stmt in body.iter() {
+                    self.compile_statement(stmt);
+                }
+
+                let instraction = self.leave_scope();
+
+                let num_locals = self.symbols.borrow().num_definitions;
+                let num_parameters = args.len();
+
+                let compiled_object = Object::CompiledFunction {
+                    instructions: instraction,
+                    num_locals,
+                    num_parameters,
+                };
+                let index = self.constants.len();
+                self.constants.push(compiled_object);
+                self.emit_load_constant(index);
+                self.emit(Opcode::Closure(index, num_locals));
+
             }
             Stmt::For { init, conditions, step, block } => {
                 self.compile_statement(init);
@@ -239,6 +272,23 @@ impl Compiler {
     pub fn emit_add(&mut self) {
         self.emit(Opcode::Add);
     }
+
+    fn enter_scope(&mut self) {
+        let symbols = SymbolTable::new_enclosed(self.symbols.borrow().clone());
+        self.symbols = Rc::new(RefCell::new(symbols));
+        self.pre_instructions = self.instructions.clone();
+        self.instructions = vec![];
+    }
+
+    fn leave_scope(&mut self) -> Vec<Opcode> {
+        let symbols = self.symbols.borrow().outer.clone().unwrap();
+        self.symbols = Rc::new(RefCell::new(*symbols));
+        let instructions = self.instructions.clone();
+        self.instructions = self.pre_instructions.clone();
+        self.pre_instructions = vec![];
+        instructions
+    }
+
 }
 
 #[cfg(test)]

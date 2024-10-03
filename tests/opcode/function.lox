@@ -1,0 +1,6 @@
+
+fun echo(msg) {
+    println(msg);
+}
+
+echo("hello world");

@@ -31,6 +31,14 @@ impl SymbolTable {
         }
     }
 
+    pub fn new_enclosed(outer: SymbolTable) -> Self {
+        SymbolTable {
+            outer: Some(Box::new(outer)),
+            store: HashMap::new(),
+            num_definitions: 0,
+        }
+    }
+
     pub fn define(&mut self, name: String) -> Symbol {
         let symbol = Symbol::new(name.clone(), self.scope_name(), self.num_definitions);
         self.store.insert(name, symbol.clone());
