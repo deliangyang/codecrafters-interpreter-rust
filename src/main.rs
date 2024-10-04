@@ -51,7 +51,15 @@ fn main() {
 
             println!("\nconstants:");
             for (i, constant) in compile.constants.iter().enumerate() {
-                println!("\t{:04} {:?}", i, constant);
+                match constant {
+                    // Object::CompiledFunction { instructions, num_locals, num_parameters } => {
+                    //     println!("\t{:04}", i, constant);
+                    //     // for (j, instruction) in instructions.iter().enumerate() {
+                    //     //     println!("\t\t{:04} {:?}", j, instruction);
+                    //     // }
+                    // }
+                    _ => println!("\t{:04} {:?}", i, constant)
+                }
             }
 
             println!("\ninstructions:");

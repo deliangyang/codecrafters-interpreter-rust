@@ -1,6 +1,6 @@
 
 fun echo(msg) {
-    println(msg);
+    println("---------------", msg);
     var a = 1;
     if (a > 0) {
         println("a is greater than 0");
@@ -10,3 +10,11 @@ fun echo(msg) {
 }
 
 echo("hello world");
+echo("hello world");
+echo("hello world");
+
+fun add(a, b) {
+    return a + b;
+}
+
+println('1 + 2 = ', add(1, 2));

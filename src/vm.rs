@@ -8,7 +8,6 @@ pub struct VM {
     globals: Vec<Object>,
     builtins: Builtins,
     sp: usize, // stack pointer
-    ip: usize, // instruction pointer
     frames: Vec<Frame>,
     frame_index: usize,
 }
@@ -27,14 +26,13 @@ impl VM {
             globals: vec![NIL; GLOBALS_SIZE],
             builtins: Builtins::new(),
             sp: 0,
-            ip: 0,
             frames: Vec::new(),
             frame_index: 0,
         }
     }
 
     pub fn run(&mut self, instructions: Vec<Opcode>) -> Object {
-        self.create_frame(
+        self.push_frame(
             Object::CompiledFunction {
                 instructions,
                 num_locals: 0,
@@ -44,18 +42,20 @@ impl VM {
         );
 
         loop {
-            if self.frames.is_empty() {
-                break;
-            }
-            let instractions = self.current_frame().instructions();
+            let mut frame = self.current_frame();
+            let instractions = frame.instructions();
             let l = instractions.len();
-            if self.ip >= l {
+            if self.ip() >= l {
                 self.pop_frame();
+                if self.frames.is_empty() {
+                    break;
+                }
                 continue;
             }
-            let instruction = &instractions[self.ip];
+            println!("globals: {:?}", self.globals.iter().filter(|x| *x != &NIL).collect::<Vec<_>>());
+            let instruction = &instractions[self.ip()];
             self.execute(instruction.clone());
-            self.ip += 1;
+            self.incr_ip();
         }
         self.pop()
     }
@@ -99,12 +99,17 @@ impl VM {
                 };
                 self.push(result);
             }
+            Opcode::ReturnValue => {
+                let obj = self.pop();
+                self.pop_frame();
+                self.push(obj);
+            }
             Opcode::Assert(pos) => {
                 let obj = self.pop();
                 if obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    self.ip = pos - 1;
+                    self.set_ip(pos - 1);
                 }
             }
             Opcode::Exit(code) => {
@@ -113,11 +118,11 @@ impl VM {
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    self.ip = pos - 1;
+                    self.set_ip(pos - 1);
                 }
             }
             Opcode::Jump(pos) => {
-                self.ip = pos - 1;
+                self.set_ip(pos - 1);
             }
             Opcode::LoadConstant(index) => {
                 self.push(self.constants[index].clone());
@@ -180,18 +185,18 @@ impl VM {
                         num_locals,
                         num_parameters,
                     } => {
-                        self.create_frame(
+                        let ip = self.ip();
+                        self.push_frame(
                             Object::CompiledFunction {
                                 instructions,
                                 num_locals,
                                 num_parameters,
                             },
-                            self.sp - n,
+                            ip - n,
                         );
                         for arg in args {
                             self.push(arg);
                         }
-                        self.ip = 0;
                     }
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
@@ -208,14 +213,14 @@ impl VM {
         self.constants = constants;
     }
 
-    pub fn create_frame(&mut self, cl: Object, base_pointer: usize) {
-        let frame = Frame::new(cl, self.ip, base_pointer);
+    pub fn push_frame(&mut self, cl: Object, base_pointer: usize) {
+        let frame = Frame::new(cl, 0, base_pointer);
         self.frames.push(frame);
         self.frame_index += 1;
     }
 
     pub fn current_frame(&mut self) -> Frame {
-        self.frames[self.frame_index-1].clone()
+        self.frames[self.frame_index - 1].clone()
     }
 
     pub fn pop_frame(&mut self) {
@@ -223,6 +228,17 @@ impl VM {
         self.frame_index -= 1;
     }
 
+    pub fn incr_ip(&mut self) {
+        self.frames[self.frame_index - 1].incr_ip();
+    }
+
+    pub fn set_ip(&mut self, ip: usize) {
+        self.frames[self.frame_index - 1].set_ip(ip);
+    }
+
+    pub fn ip(&mut self) -> usize {
+        self.frames[self.frame_index - 1].ip()
+    }
 }
 
 #[cfg(test)]

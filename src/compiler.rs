@@ -52,9 +52,10 @@ impl Compiler {
                 }
             }
             Stmt::Function(ident, args, body) => {
+                let symbol = self.symbols.borrow_mut().define(ident.0.clone());
+
                 self.enter_scope();
 
-                let symbol = self.symbols.borrow_mut().define(ident.0.clone());
                 self.emit(Opcode::SetGlobal(symbol.index));
 
                 for arg in args.iter() {
@@ -80,9 +81,14 @@ impl Compiler {
                 self.constants.push(compiled_object);
                 self.emit_load_constant(index);
                 self.emit(Opcode::Closure(index, num_locals));
-
+                self.emit(Opcode::SetGlobal(symbol.index));
             }
-            Stmt::For { init, conditions, step, block } => {
+            Stmt::For {
+                init,
+                conditions,
+                step,
+                block,
+            } => {
                 self.compile_statement(init);
                 let start = self.instructions.len();
                 self.compile_expression(conditions);
@@ -108,6 +114,10 @@ impl Compiler {
                 self.emit(Opcode::Print(1));
                 self.emit(Opcode::Exit(3));
                 self.instructions[pos] = Opcode::Assert(self.instructions.len());
+            }
+            Stmt::Return(expr) => {
+                self.compile_expression(expr);
+                self.emit(Opcode::ReturnValue);
             }
             _ => unimplemented!("Statement not implemented: {:?}", stmt),
         }
@@ -151,7 +161,10 @@ impl Compiler {
                                 }
                                 self.emit(Opcode::SetGlobal(symbol.unwrap().index));
                             }
-                            _ => unimplemented!("Left side of assignment not implemented: {:?}", left),
+                            _ => unimplemented!(
+                                "Left side of assignment not implemented: {:?}",
+                                left
+                            ),
                         }
                     }
                     _ => unimplemented!("Operator not implemented: {:?}", op),
@@ -196,6 +209,12 @@ impl Compiler {
                         let index = self.builtins.get_index(ident.0.as_str());
                         if index.is_some() {
                             self.emit(Opcode::GetBuiltin(index.unwrap()));
+                        } else {
+                            let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
+                            if symbol.is_none() {
+                                unimplemented!("Symbol not found: {:?}", ident);
+                            }
+                            self.emit(Opcode::GetGlobal(symbol.unwrap().index));
                         }
                     }
                     _ => unimplemented!("Callee not implemented: {:?}", callee),
@@ -288,7 +307,6 @@ impl Compiler {
         self.pre_instructions = vec![];
         instructions
     }
-
 }
 
 #[cfg(test)]

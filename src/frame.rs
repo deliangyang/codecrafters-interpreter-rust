@@ -3,9 +3,9 @@ use crate::{objects::Object, opcode::Opcode};
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    cl: Object,
-    ip: usize,
-    base_pointer: usize,
+    cl: Object,                 // cl is the compiled function that the frame is executing
+    ip: usize,                  // ip is the index of the instruction to be executed
+    base_pointer: usize,        // base_pointer is the index of the first local variable in the stack
 }
 
 impl Frame {
@@ -30,6 +30,10 @@ impl Frame {
 
     pub fn set_ip(&mut self, ip: usize) {
         self.ip = ip;
+    }
+
+    pub fn incr_ip(&mut self) {
+        self.ip += 1;
     }
 
     pub fn base_pointer(&self) -> usize {
