@@ -1,6 +1,6 @@
-use std::{cell::RefCell, process::exit, rc::Rc};
+use std::process::exit;
 
-use crate::{builtins::Builtins, objects::Object, opcode::Opcode};
+use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
 pub struct VM {
     constants: Vec<Object>,
@@ -9,6 +9,8 @@ pub struct VM {
     builtins: Builtins,
     sp: usize, // stack pointer
     ip: usize, // instruction pointer
+    frames: Vec<Frame>,
+    frame_index: usize,
 }
 
 const NIL: Object = Object::Nil;
@@ -26,18 +28,33 @@ impl VM {
             builtins: Builtins::new(),
             sp: 0,
             ip: 0,
+            frames: Vec::new(),
+            frame_index: 0,
         }
     }
 
     pub fn run(&mut self, instructions: Vec<Opcode>) -> Object {
-        let instractions = Rc::new(RefCell::new(instructions));
-        let l = instractions.borrow().len();
+        self.create_frame(
+            Object::CompiledFunction {
+                instructions,
+                num_locals: 0,
+                num_parameters: 0,
+            },
+            0,
+        );
+
         loop {
-            if self.ip >= l {
+            if self.frames.is_empty() {
                 break;
             }
-            let instruction = instractions.borrow()[self.ip].clone();
-            self.execute(instruction);
+            let instractions = self.current_frame().instructions();
+            let l = instractions.len();
+            if self.ip >= l {
+                self.pop_frame();
+                continue;
+            }
+            let instruction = &instractions[self.ip];
+            self.execute(instruction.clone());
             self.ip += 1;
         }
         self.pop()
@@ -96,11 +113,11 @@ impl VM {
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    self.ip = pos-1;
+                    self.ip = pos - 1;
                 }
             }
             Opcode::Jump(pos) => {
-                self.ip = pos-1;
+                self.ip = pos - 1;
             }
             Opcode::LoadConstant(index) => {
                 self.push(self.constants[index].clone());
@@ -158,8 +175,23 @@ impl VM {
                         let result = f(args);
                         self.push(result);
                     }
-                    Object::CompiledFunction { instructions, num_locals, num_parameters } => {
-                        
+                    Object::CompiledFunction {
+                        instructions,
+                        num_locals,
+                        num_parameters,
+                    } => {
+                        self.create_frame(
+                            Object::CompiledFunction {
+                                instructions,
+                                num_locals,
+                                num_parameters,
+                            },
+                            self.sp - n,
+                        );
+                        for arg in args {
+                            self.push(arg);
+                        }
+                        self.ip = 0;
                     }
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
@@ -175,8 +207,23 @@ impl VM {
     pub fn define_constants(&mut self, constants: Vec<Object>) {
         self.constants = constants;
     }
-}
 
+    pub fn create_frame(&mut self, cl: Object, base_pointer: usize) {
+        let frame = Frame::new(cl, self.ip, base_pointer);
+        self.frames.push(frame);
+        self.frame_index += 1;
+    }
+
+    pub fn current_frame(&mut self) -> Frame {
+        self.frames[self.frame_index-1].clone()
+    }
+
+    pub fn pop_frame(&mut self) {
+        self.frames.pop();
+        self.frame_index -= 1;
+    }
+
+}
 
 #[cfg(test)]
 mod tests {
