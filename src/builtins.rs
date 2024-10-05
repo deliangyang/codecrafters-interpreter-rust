@@ -9,7 +9,6 @@ pub struct Builtins {
 }
 
 impl Builtins {
-    
     pub fn new() -> Self {
         let builtins = new_builtins();
         let mut sorted = HashMap::new();
@@ -244,5 +243,6 @@ fn x_type(args: Vec<Object>) -> Object {
         Object::Class(_, _) => Object::String("class".to_string()),
         Object::ClassInstance { .. } => Object::String("class_instance".to_string()),
         Object::CompiledFunction { .. } => Object::String("compiled_function".to_string()),
+        Object::Closure { .. } => Object::String("closure".to_string()),
     }
 }

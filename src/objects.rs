@@ -30,6 +30,10 @@ pub enum Object {
         num_locals: usize,
         num_parameters: usize,
     },
+    Closure {
+        func: Rc<Object>,
+        free: Vec<Object>,
+    },
 }
 
 impl Eq for Object {}
@@ -113,6 +117,9 @@ impl Display for Object {
                     "compiled function with {} locals and {} parameters: {:?}",
                     num_locals, num_parameters, instructions
                 )
+            }
+            Object::Closure { func, free } => {
+                write!(f, "closure of {:?} with free variables {:?}", func, free)
             }
         }
     }

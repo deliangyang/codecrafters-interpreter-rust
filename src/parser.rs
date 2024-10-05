@@ -95,6 +95,13 @@ impl<'a> Parser<'a> {
             Token::Class => self.parse_class(),
             Token::For => self.parse_for_loop(),
             Token::Assert => self.parse_assert_expr(),
+            Token::Identifier(_) => {
+                if self.next == Token::Equal {
+                    self.parse_assign()
+                } else {
+                    self.parse_expr_stmt()
+                }
+            }
             Token::LeftBrace => {
                 self.next();
                 let mut stmts: Program = vec![];
@@ -823,6 +830,32 @@ impl<'a> Parser<'a> {
 
         if let Some(right) = self.parse_expr(precedence) {
             return Some(ExprType::InfixExpr(Box::new(left), op, Box::new(right)));
+        }
+        println!("Unexpected token: {:?}", self.current);
+        self.lex
+            .log_error(self.current.clone(), "Expect expression");
+        return None;
+    }
+
+    fn parse_assign(&mut self) -> Option<Stmt> {
+        let left = self.parse_ident();
+        self.next();
+        let op = self.current.clone();
+        if op != Token::Equal {
+            self.lex
+                .log_error(self.current.clone(), "Expect '=' after identifier");
+            return None;
+        }
+        self.next();
+        let right = self.parse_expr(Precedence::Lowest);
+        if let Some(right) = right {
+            if self.current != Token::Semicolon {
+                self.lex
+                    .log_error(self.current.clone(), "Expect ';' after assign");
+                return None;
+            }
+            self.next();
+            return Some(Stmt::Assign(ExprType::Ident(left.unwrap()), right));
         }
         println!("Unexpected token: {:?}", self.current);
         self.lex

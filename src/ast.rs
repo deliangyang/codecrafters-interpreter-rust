@@ -13,7 +13,7 @@ impl Display for Ident {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Blank,
-    Var(Ident, ExprType),       // var x = 1;
+    Var(Ident, ExprType), // var x = 1;
     Expr(ExprType),
     Block(Vec<Stmt>),
     Return(ExprType),
@@ -23,6 +23,7 @@ pub enum Stmt {
     Default(BlockStmt),
     While(ExprType, BlockStmt),
     Import(String),
+    Assign(ExprType, ExprType),
     ClassStmt {
         name: Ident,
         properties: Vec<Stmt>,
@@ -56,6 +57,7 @@ impl Display for Stmt {
                 }
                 Ok(())
             }
+            Stmt::Assign(left, right) => write!(f, "{} = {}", left, right),
             Stmt::Import(s) => write!(f, "import {:?}", s),
             Stmt::Return(e) => write!(f, "return {}", e),
             Stmt::Blank => write!(f, ""),
@@ -382,7 +384,7 @@ impl Display for ExprType {
             ExprType::ClassGet { callee, prop } => write!(f, "{}.{}", callee, prop),
             ExprType::IndexExpr(left, right) => {
                 write!(f, "{}[{}]", left, right)
-            },
+            }
         }
     }
 }
@@ -390,11 +392,11 @@ impl Display for ExprType {
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
     Lowest,
-    And,        // &&
+    And,         // &&
     Equals,      // ==
     LessGreater, // > or <
-    OpSelfSum,      // += -=
-    OpSelfMul,      // *= /=
+    OpSelfSum,   // += -=
+    OpSelfMul,   // *= /=
     Plus,        // +
     Star,        // *
     PlusPlus,    // ++ --

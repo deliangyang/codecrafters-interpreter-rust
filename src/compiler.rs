@@ -5,7 +5,7 @@ use crate::{
     builtins::Builtins,
     objects::Object,
     opcode::Opcode,
-    symbol::SymbolTable,
+    symbol::{Scope, Symbol, SymbolTable},
     token::Token,
 };
 
@@ -44,7 +44,11 @@ impl Compiler {
             Stmt::Var(ident, expr) => {
                 self.compile_expression(expr);
                 let symbol = self.symbols.borrow_mut().define(ident.0.clone());
-                self.emit(Opcode::SetGlobal(symbol.index));
+                if symbol.scope == Scope::Global {
+                    self.emit(Opcode::SetGlobal(symbol.index));
+                } else {
+                    self.emit(Opcode::SetLocal(symbol.index));
+                }
             }
             Stmt::Block(stmts) => {
                 for stmt in stmts.iter() {
@@ -115,6 +119,18 @@ impl Compiler {
                 self.emit(Opcode::Exit(3));
                 self.instructions[pos] = Opcode::Assert(self.instructions.len());
             }
+            Stmt::Assign(ident, right) => match ident {
+                ExprType::Ident(ident) => {
+                    let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
+                    if symbol.is_none() {
+                        unimplemented!("Symbol not found: {:?}", ident);
+                    }
+                    self.compile_expression(right);
+                    self.load_symbol(symbol.unwrap().clone());
+                    return;
+                }
+                _ => unimplemented!("Left side of assignment not implemented: {:?}", ident),
+            },
             Stmt::Return(expr) => {
                 self.compile_expression(expr);
                 self.emit(Opcode::ReturnValue);
@@ -134,7 +150,7 @@ impl Compiler {
                                 unimplemented!("Symbol not found: {:?}", ident);
                             }
                             self.compile_expression(right);
-                            self.emit(Opcode::SetGlobal(symbol.unwrap().index));
+                            self.load_symbol(symbol.unwrap().clone());
                             return;
                         }
                         _ => unimplemented!("Left side of assignment not implemented: {:?}", left),
@@ -201,7 +217,7 @@ impl Compiler {
                 if symbol.is_none() {
                     unimplemented!("Symbol not found: {:?}", ident);
                 }
-                self.emit(Opcode::GetGlobal(symbol.unwrap().index));
+                self.load_symbol(symbol.unwrap().clone());
             }
             ExprType::Call { callee, args } => {
                 match callee.as_ref() {
@@ -306,6 +322,16 @@ impl Compiler {
         self.instructions = self.pre_instructions.clone();
         self.pre_instructions = vec![];
         instructions
+    }
+
+    fn load_symbol(&mut self, s: Symbol) {
+        match s.scope {
+            Scope::Global => self.emit(Opcode::GetGlobal(s.index)),
+            Scope::Local => self.emit(Opcode::GetLocal(s.index)),
+            Scope::Free => self.emit(Opcode::GetFree(s.index)),
+            Scope::Builtin => self.emit(Opcode::GetBuiltin(s.index)),
+            Scope::Function => self.emit(Opcode::CurrentClosure),
+        }
     }
 }
 

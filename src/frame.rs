@@ -1,11 +1,12 @@
-use crate::{objects::Object, opcode::Opcode};
+use std::borrow::Borrow;
 
+use crate::{objects::Object, opcode::Opcode};
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    cl: Object,                 // cl is the compiled function that the frame is executing
-    ip: usize,                  // ip is the index of the instruction to be executed
-    base_pointer: usize,        // base_pointer is the index of the first local variable in the stack
+    cl: Object,          // cl is the compiled function that the frame is executing
+    ip: usize,           // ip is the index of the instruction to be executed
+    base_pointer: usize, // base_pointer is the index of the first local variable in the stack
 }
 
 impl Frame {
@@ -20,6 +21,10 @@ impl Frame {
     pub fn instructions(&mut self) -> Vec<Opcode> {
         match self.cl.clone() {
             Object::CompiledFunction { instructions, .. } => instructions,
+            Object::Closure { func, free: _ } => match func.borrow() {
+                Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
+                _ => panic!("instructions called on non-compiled function"),
+            },
             _ => panic!("instructions called on non-compiled function"),
         }
     }

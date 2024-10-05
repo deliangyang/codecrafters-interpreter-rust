@@ -177,6 +177,49 @@ impl Evaluator {
                     }
                 }
             }
+            Stmt::Assign(ident, right) => {
+                match ident {
+                    ExprType::Ident(ident) => {
+                        let name = ident.0.clone();
+                        let object = self.evaluate_expr(right).unwrap();
+                        self.envs.borrow_mut().set(name, &object);
+                        return Some(object);
+                    }
+                    ExprType::IndexExpr(ident, expr) => {
+                        if let ExprType::Ident(ident) = ident.as_ref() {
+                            let hash = self.envs.borrow_mut().get(ident.0.clone());
+                            if hash.is_none() {
+                                panic!("not found {:?}", ident);
+                            }
+                            let hash_object = hash.unwrap();
+                            if let Object::Hash(ref hash) = hash_object {
+                                let index = self.evaluate_expr(expr).unwrap();
+                                let object = self.evaluate_expr(right).unwrap();
+                                hash.borrow_mut().insert(index, object.clone());
+                                self.envs
+                                    .borrow_mut()
+                                    .set(ident.0.clone(), &Object::Hash(hash.clone()));
+                                return Some(object);
+                            }
+                        }
+                    }
+                    ExprType::ThisExpr(ident) => {
+                        let object = self.envs.borrow_mut().get_current_class().unwrap();
+                        if let Object::ClassInstance {
+                            name: _,
+                            ref fields,
+                            properties: _,
+                        } = object.clone()
+                        {
+                            let object = self.evaluate_expr(right).unwrap();
+                            fields.borrow_mut().insert(ident.0.clone(), object.clone());
+                            return Some(object);
+                        }
+                        return Some(object);
+                    }
+                    _ => unimplemented!("not found {:?}", ident),
+                }
+            }
             _ => unimplemented!(),
         }
         None

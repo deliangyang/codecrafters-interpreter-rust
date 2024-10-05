@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::{process::exit, rc::Rc};
 
 use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
@@ -32,11 +32,15 @@ impl VM {
     }
 
     pub fn run(&mut self, instructions: Vec<Opcode>) -> Object {
+        let func = Object::CompiledFunction {
+            instructions,
+            num_locals: 0,
+            num_parameters: 0,
+        };
         self.push_frame(
-            Object::CompiledFunction {
-                instructions,
-                num_locals: 0,
-                num_parameters: 0,
+            Object::Closure {
+                func: Rc::new(func),
+                free: vec![],
             },
             0,
         );
@@ -52,7 +56,6 @@ impl VM {
                 }
                 continue;
             }
-            println!("globals: {:?}", self.globals.iter().filter(|x| *x != &NIL).collect::<Vec<_>>());
             let instruction = &instractions[self.ip()];
             self.execute(instruction.clone());
             self.incr_ip();
@@ -180,6 +183,16 @@ impl VM {
                         let result = f(args);
                         self.push(result);
                     }
+                    Object::Closure { func, free } => {
+                        let ip = self.ip();
+                        self.push_frame(
+                            Object::Closure { func, free },
+                            ip - n,
+                        );
+                        for arg in args {
+                            self.push(arg);
+                        }
+                    }
                     Object::CompiledFunction {
                         instructions,
                         num_locals,
@@ -201,9 +214,16 @@ impl VM {
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
             }
-            Opcode::Closure(index, _) => {
-                let obj = self.constants[index].clone();
-                self.push(obj);
+            Opcode::Closure(index, free_count) => self.push_closure(index, free_count),
+            Opcode::GetFree(index) => {
+                let frame = self.current_frame();
+                match frame.cl() {
+                    Object::Closure { free, .. } => {
+                        let obj = free[index].clone();
+                        self.push(obj);
+                    }
+                    _ => unimplemented!("unimplemented opcode: {:?}", instruction),
+                }
             }
             _ => unimplemented!("unimplemented opcode: {:?}", instruction),
         }
@@ -238,6 +258,14 @@ impl VM {
 
     pub fn ip(&mut self) -> usize {
         self.frames[self.frame_index - 1].ip()
+    }
+
+    pub fn push_closure(&mut self, const_index: usize, free_count: usize) {
+        let closure = Object::Closure {
+            func: Rc::new(self.constants[const_index].clone()),
+            free: self.stack.split_off(self.sp - free_count),
+        };
+        self.push(closure);
     }
 }
 
