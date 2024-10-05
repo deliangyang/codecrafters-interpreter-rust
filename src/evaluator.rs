@@ -659,7 +659,10 @@ impl Evaluator {
                     Some(Object::Builtin(name, argc, fun)) => {
                         let mut args_vec = Vec::new();
                         for arg in args {
-                            args_vec.push(self.evaluate_expr(arg).unwrap());
+                            let result = self.evaluate_expr(arg);
+                            if result.is_some() {
+                                args_vec.push(result.unwrap());
+                            }
                         }
                         let real_argc = args_vec.len() as i32;
                         if argc != -1 && real_argc != argc {
