@@ -47,7 +47,7 @@ pub struct SymbolTable {
     pub outer: Option<Box<SymbolTable>>,
     pub store: HashMap<String, Symbol>,
     pub num_definitions: usize,
-    free_symbols: Vec<Symbol>,
+    pub free_symbols: Vec<Symbol>,
 }
 
 impl SymbolTable {
@@ -119,7 +119,14 @@ impl SymbolTable {
                                 Some(free)
                             }
                         }
-                        None => None,
+                        None => {
+                            let free = self.define_free(Symbol::new(
+                                name.to_string(),
+                                Scope::Free,
+                                self.free_symbols.len(),
+                            ));
+                            Some(free)
+                        }
                     }
                 }
                 None => None,

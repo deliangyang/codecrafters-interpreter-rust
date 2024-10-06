@@ -50,6 +50,9 @@ impl VM {
             let instractions = frame.instructions();
             let l = instractions.len();
             if self.ip() >= l {
+                if self.frames.len() == 1 {
+                    break;
+                }
                 self.pop_frame();
                 if self.frames.is_empty() {
                     break;
@@ -57,8 +60,11 @@ impl VM {
                 continue;
             }
             let instruction = &instractions[self.ip()];
+            // println!("ip: {:?}, instruction: {:?}", self.ip(), instruction);
             self.execute(instruction.clone());
-            self.incr_ip();
+        }
+        if self.stack.is_empty() {
+            return NIL;
         }
         self.pop()
     }
@@ -101,18 +107,21 @@ impl VM {
                     _ => Object::Nil,
                 };
                 self.push(result);
+                self.incr_ip();
             }
             Opcode::ReturnValue => {
                 let obj = self.pop();
+                self.incr_ip();
                 self.pop_frame();
                 self.push(obj);
+                // println!("self.stack: {:?}", self.stack);
             }
             Opcode::Assert(pos) => {
                 let obj = self.pop();
                 if obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    self.set_ip(pos - 1);
+                    self.set_ip(pos);
                 }
             }
             Opcode::Exit(code) => {
@@ -121,17 +130,21 @@ impl VM {
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    self.set_ip(pos - 1);
+                    self.set_ip(pos);
+                } else {
+                    self.incr_ip();
                 }
             }
             Opcode::Jump(pos) => {
-                self.set_ip(pos - 1);
+                self.set_ip(pos);
             }
             Opcode::LoadConstant(index) => {
                 self.push(self.constants[index].clone());
+                self.incr_ip();
             }
             Opcode::Pop => {
                 self.pop();
+                self.incr_ip();
             }
             Opcode::Abs => {
                 let obj = self.pop();
@@ -139,6 +152,7 @@ impl VM {
                     Object::Number(n) => n.abs(),
                     _ => 0.0,
                 }));
+                self.incr_ip();
             }
             Opcode::Nagetive => {
                 let obj = self.pop();
@@ -146,23 +160,28 @@ impl VM {
                     Object::Number(n) => -n,
                     _ => 0.0,
                 }));
+                self.incr_ip();
             }
             Opcode::Print(n) => {
                 for _ in 0..n {
                     let obj = self.pop();
                     print!("{} ", obj);
                 }
+                self.incr_ip();
             }
             Opcode::DefineGlobal(s) => {
                 let obj = self.pop();
                 println!("{} = {:?}", s, obj);
+                self.incr_ip();
             }
             Opcode::GetGlobal(index) => {
                 self.push(self.globals[index].clone());
+                self.incr_ip();
             }
             Opcode::SetGlobal(index) => {
                 let obj = self.pop();
                 self.globals[index] = obj;
+                self.incr_ip();
             }
             Opcode::GetBuiltin(index) => {
                 let obj = self.builtins.get_by_index(index);
@@ -170,46 +189,27 @@ impl VM {
                     unimplemented!("builtin not found: {:?}", index);
                 }
                 self.push(obj.unwrap().clone());
+                self.incr_ip();
             }
             Opcode::Call(n) => {
-                let mut args = Vec::new();
-                for _ in 0..n {
-                    args.push(self.pop());
-                }
-                args.reverse();
                 let func = self.pop();
                 match func {
                     Object::Builtin(_, _, f) => {
-                        let result = f(args);
-                        self.push(result);
+                        let mut args = Vec::new();
+                        for _ in 0..n {
+                            args.push(self.pop());
+                        }
+                        args.reverse();
+                        let _ = f(args);
+                        self.incr_ip();
+                        //self.push(result);
                     }
                     Object::Closure { func, free } => {
                         let ip = self.ip();
-                        self.push_frame(
-                            Object::Closure { func, free },
-                            ip - n,
-                        );
-                        for arg in args {
-                            self.push(arg);
-                        }
-                    }
-                    Object::CompiledFunction {
-                        instructions,
-                        num_locals,
-                        num_parameters,
-                    } => {
-                        let ip = self.ip();
-                        self.push_frame(
-                            Object::CompiledFunction {
-                                instructions,
-                                num_locals,
-                                num_parameters,
-                            },
-                            ip - n,
-                        );
-                        for arg in args {
-                            self.push(arg);
-                        }
+                        self.incr_ip();
+                        // println!("func: {:?}, free: {:?}, stack: {:?}", func, free, self.stack);
+                        self.push_frame(Object::Closure { func, free }, ip - n);
+                        // println!("-------------------- push new frame {:?} ---------------------", self.ip());
                     }
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
@@ -224,6 +224,19 @@ impl VM {
                     }
                     _ => unimplemented!("unimplemented opcode: {:?}", instruction),
                 }
+                self.incr_ip();
+            }
+            Opcode::SetLocal(_index) => {
+                // let obj = self.pop();
+                // println!("set local: {:?}", index);
+                self.incr_ip();
+            }
+            Opcode::GetLocal(_index) => {
+                self.incr_ip();
+                //println!("get local: {:?}", index);
+                // let frame = self.current_frame();
+                // let obj = frame.get_local(index);
+                // self.push(obj);
             }
             _ => unimplemented!("unimplemented opcode: {:?}", instruction),
         }
@@ -234,7 +247,7 @@ impl VM {
     }
 
     pub fn push_frame(&mut self, cl: Object, base_pointer: usize) {
-        let frame = Frame::new(cl, 0, base_pointer);
+        let frame = Frame::new(cl, base_pointer, 0);
         self.frames.push(frame);
         self.frame_index += 1;
     }
@@ -261,11 +274,19 @@ impl VM {
     }
 
     pub fn push_closure(&mut self, const_index: usize, free_count: usize) {
+        // println!("push closure: {:?}, {:?}, stack: {:?}", const_index, free_count, self.stack);
+        let mut free = vec![];
+        for _ in 0..free_count {
+            free.push(self.pop());
+        }
+        // let free = self.stack.split_off(self.sp - free_count);
+        // println!("free: {:?}", free);
         let closure = Object::Closure {
-            func: Rc::new(self.constants[const_index].clone()),
-            free: self.stack.split_off(self.sp - free_count),
+            func: Rc::new(self.globals[const_index].clone()),
+            free,
         };
         self.push(closure);
+        self.incr_ip();
     }
 }
 

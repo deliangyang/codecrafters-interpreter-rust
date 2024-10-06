@@ -84,4 +84,5 @@ impl Frame {
         let ins = self.instructions();
         ins[self.ip].clone()
     }
+
 }

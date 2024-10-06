@@ -57,23 +57,25 @@ impl Compiler {
             }
             Stmt::Function(ident, args, body) => {
                 let symbol = self.symbols.borrow_mut().define(ident.0.clone());
-
                 self.enter_scope();
 
-                self.emit(Opcode::SetGlobal(symbol.index));
-
                 for arg in args.iter() {
-                    let symbol = self.symbols.borrow_mut().define(arg.0.clone());
-                    self.emit(Opcode::SetGlobal(symbol.index));
+                    let symbol = self.symbols.borrow_mut().resolve(arg.0.as_str());
+                    if symbol.is_none() {
+                        unimplemented!("Symbol not found: {:?}", arg);
+                    }
+                    // self.load_symbol(symbol.unwrap().clone());
                 }
 
+                // println!("{:?}", self.symbols.borrow_mut().free_symbols);
                 for stmt in body.iter() {
                     self.compile_statement(stmt);
                 }
 
                 let instraction = self.leave_scope();
 
-                let num_locals = self.symbols.borrow().num_definitions;
+                let symbols = self.symbols.borrow().clone();
+                let num_locals = symbols.num_definitions;
                 let num_parameters = args.len();
 
                 let compiled_object = Object::CompiledFunction {
@@ -83,9 +85,8 @@ impl Compiler {
                 };
                 let index = self.constants.len();
                 self.constants.push(compiled_object);
-                self.emit_load_constant(index);
-                self.emit(Opcode::Closure(index, num_locals));
-                self.emit(Opcode::SetGlobal(symbol.index));
+                self.emit_load_constant(index); // Load function object
+                self.emit(Opcode::SetGlobal(symbol.index)); // Set global variable
             }
             Stmt::For {
                 init,
@@ -220,6 +221,10 @@ impl Compiler {
                 self.load_symbol(symbol.unwrap().clone());
             }
             ExprType::Call { callee, args } => {
+                for arg in args.iter() {
+                    self.compile_expression(arg);
+                }
+
                 match callee.as_ref() {
                     ExprType::Ident(ident) => {
                         let index = self.builtins.get_index(ident.0.as_str());
@@ -230,15 +235,13 @@ impl Compiler {
                             if symbol.is_none() {
                                 unimplemented!("Symbol not found: {:?}", ident);
                             }
-                            self.emit(Opcode::GetGlobal(symbol.unwrap().index));
+                            let index = symbol.unwrap().index;
+                            self.emit(Opcode::Closure(index, args.len()));
                         }
                     }
                     _ => unimplemented!("Callee not implemented: {:?}", callee),
                 };
 
-                for arg in args.iter() {
-                    self.compile_expression(arg);
-                }
                 self.emit(Opcode::Call(args.len()));
             }
             ExprType::If {
