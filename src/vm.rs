@@ -60,7 +60,7 @@ impl VM {
                 continue;
             }
             let instruction = &instractions[self.ip()];
-            // println!("ip: {:?}, instruction: {:?}", self.ip(), instruction);
+            println!("ip: {:?}, instruction: {:?}", self.ip(), instruction);
             self.execute(instruction.clone());
         }
         if self.stack.is_empty() {
@@ -209,7 +209,7 @@ impl VM {
                         self.incr_ip();
                         // println!("func: {:?}, free: {:?}, stack: {:?}", func, free, self.stack);
                         self.push_frame(Object::Closure { func, free }, ip - n);
-                        // println!("-------------------- push new frame {:?} ---------------------", self.ip());
+                        println!("-------------------- push new frame {:?} ---------------------", self.ip());
                     }
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
@@ -225,6 +225,34 @@ impl VM {
                     _ => unimplemented!("unimplemented opcode: {:?}", instruction),
                 }
                 self.incr_ip();
+            }
+            Opcode::TailCall(n) => {
+                let func = self.pop();
+                match func {
+                    Object::Builtin(_, _, f) => {
+                        let mut args = Vec::new();
+                        for _ in 0..n {
+                            args.push(self.pop());
+                        }
+                        args.reverse();
+                        let _ = f(args);
+                        self.incr_ip();
+                        //self.push(result);
+                    }
+                    Object::Closure { func, free } => {
+                        let ip = self.ip();
+                        self.set_ip(ip - n);
+                        self.pop_frame();
+                        self.push_frame(Object::Closure { func, free }, ip - n);
+                    }
+                    _ => unimplemented!("unimplemented function: {:?}", func),
+                }
+            }
+            Opcode::Return => {
+                let result = self.pop();
+                self.incr_ip();
+                self.pop_frame();
+                self.push(result);
             }
             Opcode::SetLocal(_index) => {
                 // let obj = self.pop();

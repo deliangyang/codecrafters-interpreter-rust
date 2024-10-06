@@ -134,7 +134,13 @@ impl Compiler {
             },
             Stmt::Return(expr) => {
                 self.compile_expression(expr);
-                self.emit(Opcode::ReturnValue);
+                self.emit(Opcode::Return);
+                // if self.is_tail_call(stmt) {
+                //     self.emit(Opcode::TailCall(0));
+                // } else {
+                //     self.emit(Opcode::ReturnValue);
+                //     // self.emit(Opcode::Return);
+                // }
             }
             _ => unimplemented!("Statement not implemented: {:?}", stmt),
         }
@@ -336,6 +342,18 @@ impl Compiler {
             Scope::Function => self.emit(Opcode::CurrentClosure),
         }
     }
+
+    // #[warn(dead_code)]
+    // fn is_tail_call(&self, stmt: &Stmt) -> bool {
+    //     match stmt {
+    //         Stmt::Return(_) => true,
+    //         Stmt::Expr(expr) => match expr {
+    //             ExprType::Call { .. } => true,
+    //             _ => false,
+    //         },
+    //         _ => false,
+    //     }
+    // }
 }
 
 #[cfg(test)]

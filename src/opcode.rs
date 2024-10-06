@@ -19,6 +19,7 @@ pub enum Opcode {
     GetFree(usize),
     CurrentClosure,
     Call(usize),
+    TailCall(usize),
     Return,
     Array(usize),
     Hash(usize),

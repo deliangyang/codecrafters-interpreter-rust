@@ -8,4 +8,4 @@ fun fib(n, a, b) {
   }
 }
 
-print fib(10, 0, 1);  // Example usage
+println(fib(35, 0, 1));  // Example usage
