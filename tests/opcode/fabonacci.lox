@@ -8,4 +8,4 @@ fun fibonacci(x) {
   }
 }
 
-println(fibonacci(35));
+println(fibonacci(3));
