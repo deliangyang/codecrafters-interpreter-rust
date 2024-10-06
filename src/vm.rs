@@ -60,7 +60,7 @@ impl VM {
                 continue;
             }
             let instruction = &instractions[self.ip()];
-            println!("ip: {:?}, instruction: {:?}", self.ip(), instruction);
+            // println!("ip: {:?}, instruction: {:?}", self.ip(), instruction);
             self.execute(instruction.clone());
         }
         if self.stack.is_empty() {
@@ -193,6 +193,7 @@ impl VM {
             }
             Opcode::Call(n) => {
                 let func = self.pop();
+                // println!("----------> call: {:?}", func);
                 match func {
                     Object::Builtin(_, _, f) => {
                         let mut args = Vec::new();
@@ -209,7 +210,7 @@ impl VM {
                         self.incr_ip();
                         // println!("func: {:?}, free: {:?}, stack: {:?}", func, free, self.stack);
                         self.push_frame(Object::Closure { func, free }, ip - n);
-                        println!("-------------------- push new frame {:?} ---------------------", self.ip());
+                        // println!("-------------------- push new frame {:?} ---------------------", self.ip());
                     }
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
@@ -307,6 +308,7 @@ impl VM {
         for _ in 0..free_count {
             free.push(self.pop());
         }
+        free.reverse();
         // let free = self.stack.split_off(self.sp - free_count);
         // println!("free: {:?}", free);
         let closure = Object::Closure {
