@@ -53,6 +53,23 @@ impl Frame {
         self.cl.clone()
     }
 
+    pub fn set_cl(&mut self, cl: Object) {
+        self.cl = cl;
+    }
+
+    pub fn set_cl_free(&mut self, free: Vec<Object>) {
+        match self.cl.clone() {
+            Object::Closure { func, free: _ } => {
+                if let Object::CompiledFunction { .. } = func.borrow() {
+                    self.cl = Object::Closure { func, free };
+                } else {
+                    panic!("set_cl_free called on non-closure");
+                }
+            }
+            _ => panic!("set_cl_free called on non-closure"),
+        }
+    }
+
     pub fn num_locals(&self) -> usize {
         match self.cl.clone() {
             Object::CompiledFunction { num_locals, .. } => num_locals,
@@ -84,5 +101,4 @@ impl Frame {
         let ins = self.instructions();
         ins[self.ip].clone()
     }
-
 }

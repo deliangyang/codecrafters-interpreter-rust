@@ -134,6 +134,11 @@ impl Compiler {
             },
             Stmt::Return(expr) => {
                 self.compile_expression(expr);
+                // let last = self.instructions.last().unwrap().clone();
+                // match last {
+                //     Opcode::Call(count) => self.emit(Opcode::TailCall(count)),
+                //     _ => self.emit(Opcode::Return)
+                // }
                 self.emit(Opcode::Return);
                 // if self.is_tail_call(stmt) {
                 //     self.emit(Opcode::TailCall(0));

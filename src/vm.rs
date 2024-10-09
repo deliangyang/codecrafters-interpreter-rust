@@ -1,4 +1,7 @@
-use std::{process::exit, rc::Rc};
+use std::{
+    process::exit,
+    rc::Rc,
+};
 
 use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
@@ -10,6 +13,9 @@ pub struct VM {
     sp: usize, // stack pointer
     frames: Vec<Frame>,
     frame_index: usize,
+    count: usize,
+    current_frame: Box<Frame>,
+    current_instructions: Vec<Opcode>,
 }
 
 const NIL: Object = Object::Nil;
@@ -28,6 +34,9 @@ impl VM {
             sp: 0,
             frames: Vec::new(),
             frame_index: 0,
+            count: 0,
+            current_frame: Box::new(Frame::new(Object::Nil, 0, 0)),
+            current_instructions: Vec::new(),
         }
     }
 
@@ -44,11 +53,11 @@ impl VM {
             },
             0,
         );
+        self.current_frame = self.current_frame();
+        self.current_instructions = self.current_frame.instructions();
 
         loop {
-            let mut frame = self.current_frame();
-            let instractions = frame.instructions();
-            let l = instractions.len();
+            let l = self.current_instructions.len();
             if self.ip() >= l {
                 if self.frames.len() == 1 {
                     break;
@@ -59,10 +68,16 @@ impl VM {
                 }
                 continue;
             }
-            let instruction = &instractions[self.ip()];
+            let index = self.ip();
+            let instruction = self.current_instructions.get(index);
             // println!("ip: {:?}, instruction: {:?}", self.ip(), instruction);
-            self.execute(instruction.clone());
+            if instruction.is_none() {
+                break;
+            }
+            self.execute(instruction.unwrap().clone());
         }
+
+        println!("count: {:?}", self.count);
         if self.stack.is_empty() {
             return NIL;
         }
@@ -196,11 +211,8 @@ impl VM {
                 // println!("----------> call: {:?}", func);
                 match func {
                     Object::Builtin(_, _, f) => {
-                        let mut args = Vec::new();
-                        for _ in 0..n {
-                            args.push(self.pop());
-                        }
-                        args.reverse();
+                        let args = self.stack.split_off(self.sp - n);
+                        self.sp -= n;
                         let _ = f(args);
                         self.incr_ip();
                         //self.push(result);
@@ -208,8 +220,8 @@ impl VM {
                     Object::Closure { func, free } => {
                         let ip = self.ip();
                         self.incr_ip();
-                        // println!("func: {:?}, free: {:?}, stack: {:?}", func, free, self.stack);
                         self.push_frame(Object::Closure { func, free }, ip - n);
+                        self.count += 1;
                         // println!("-------------------- push new frame {:?} ---------------------", self.ip());
                     }
                     _ => unimplemented!("unimplemented function: {:?}", func),
@@ -279,15 +291,21 @@ impl VM {
         let frame = Frame::new(cl, base_pointer, 0);
         self.frames.push(frame);
         self.frame_index += 1;
+        self.current_frame = self.current_frame();
+        self.current_instructions = self.current_frame.instructions();
     }
 
-    pub fn current_frame(&mut self) -> Frame {
-        self.frames[self.frame_index - 1].clone()
+    pub fn current_frame(&mut self) -> Box<Frame> {
+        Box::new(self.frames[self.frame_index - 1].clone())
     }
 
     pub fn pop_frame(&mut self) {
         self.frames.pop();
         self.frame_index -= 1;
+        if self.frame_index > 0 {
+            self.current_frame = self.current_frame();
+            self.current_instructions = self.current_frame.instructions();
+        }
     }
 
     pub fn incr_ip(&mut self) {
@@ -304,13 +322,9 @@ impl VM {
 
     pub fn push_closure(&mut self, const_index: usize, free_count: usize) {
         // println!("push closure: {:?}, {:?}, stack: {:?}", const_index, free_count, self.stack);
-        let mut free = vec![];
-        for _ in 0..free_count {
-            free.push(self.pop());
-        }
-        free.reverse();
-        // let free = self.stack.split_off(self.sp - free_count);
-        // println!("free: {:?}", free);
+        let free = self.stack.split_off(self.sp - free_count);
+        self.sp -= free_count;
+        // println!("free: {}, {} {:?}", self.sp, free_count, free);
         let closure = Object::Closure {
             func: Rc::new(self.globals[const_index].clone()),
             free,
