@@ -1,31 +1,28 @@
-use std::borrow::Borrow;
-
-use crate::{objects::Object, opcode::Opcode};
+use crate::objects::Object;
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    cl: Object,          // cl is the compiled function that the frame is executing
+    const_index: usize,
+    is_main: bool,
     ip: usize,           // ip is the index of the instruction to be executed
     base_pointer: usize, // base_pointer is the index of the first local variable in the stack
+    frees: Vec<Object>,  // frees is a vector of free variables
 }
 
 impl Frame {
-    pub fn new(cl: Object, bp: usize, ip: usize) -> Frame {
+    pub fn new(
+        const_index: usize,
+        is_main: bool,
+        ip: usize,
+        base_pointer: usize,
+        frees: Vec<Object>,
+    ) -> Frame {
         Frame {
-            cl,
+            const_index,
+            is_main,
             ip,
-            base_pointer: bp,
-        }
-    }
-
-    pub fn instructions(&mut self) -> Vec<Opcode> {
-        match self.cl.clone() {
-            Object::CompiledFunction { instructions, .. } => instructions,
-            Object::Closure { func, free: _ } => match func.borrow() {
-                Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
-                _ => panic!("instructions called on non-compiled function"),
-            },
-            _ => panic!("instructions called on non-compiled function"),
+            base_pointer,
+            frees,
         }
     }
 
@@ -49,41 +46,6 @@ impl Frame {
         self.base_pointer = bp;
     }
 
-    pub fn cl(&self) -> Object {
-        self.cl.clone()
-    }
-
-    pub fn set_cl(&mut self, cl: Object) {
-        self.cl = cl;
-    }
-
-    pub fn set_cl_free(&mut self, free: Vec<Object>) {
-        match self.cl.clone() {
-            Object::Closure { func, free: _ } => {
-                if let Object::CompiledFunction { .. } = func.borrow() {
-                    self.cl = Object::Closure { func, free };
-                } else {
-                    panic!("set_cl_free called on non-closure");
-                }
-            }
-            _ => panic!("set_cl_free called on non-closure"),
-        }
-    }
-
-    pub fn num_locals(&self) -> usize {
-        match self.cl.clone() {
-            Object::CompiledFunction { num_locals, .. } => num_locals,
-            _ => panic!("num_locals called on non-compiled function"),
-        }
-    }
-
-    pub fn num_parameters(&self) -> usize {
-        match self.cl.clone() {
-            Object::CompiledFunction { num_parameters, .. } => num_parameters,
-            _ => panic!("num_parameters called on non-compiled function"),
-        }
-    }
-
     pub fn push(&mut self) {
         self.ip += 1;
     }
@@ -92,13 +54,19 @@ impl Frame {
         self.ip -= 1;
     }
 
-    pub fn last_instruction(&mut self) -> Opcode {
-        let ins = self.instructions();
-        ins[self.ip - 1].clone()
+    pub fn get_index(&self) -> usize {
+        self.const_index
     }
 
-    pub fn next_instruction(&mut self) -> Opcode {
-        let ins = self.instructions();
-        ins[self.ip].clone()
+    pub fn is_main(&self) -> bool {
+        self.is_main
+    }
+
+    pub fn get_frees(&self) -> Vec<Object> {
+        self.frees.clone()
+    }
+
+    pub fn get_free(&self, index: usize) -> Object {
+        self.frees[index].clone()
     }
 }

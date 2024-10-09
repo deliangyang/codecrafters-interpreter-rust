@@ -1,4 +1,4 @@
-use std::{process::exit, rc::Rc};
+use std::{borrow::Borrow, process::exit, rc::Rc, vec};
 
 use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
@@ -13,6 +13,7 @@ pub struct VM {
     count: usize,
     current_frame: Box<Frame>,
     current_instructions: Vec<Opcode>,
+    main_closure: Object,
 }
 
 const NIL: Object = Object::Nil;
@@ -32,8 +33,20 @@ impl VM {
             frames: Vec::new(),
             frame_index: 0,
             count: 0,
-            current_frame: Box::new(Frame::new(Object::Nil, 0, 0)),
+            current_frame: Box::new(Frame::new(0, true, 0, 0, vec![])),
             current_instructions: Vec::new(),
+            main_closure: Object::Nil,
+        }
+    }
+
+    fn get_instructions(&self, cl: &Object) -> Vec<Opcode> {
+        match cl {
+            Object::Closure { func, .. } => match func.borrow() {
+                Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
+                _ => vec![],
+            },
+            Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
+            _ => vec![],
         }
     }
 
@@ -43,19 +56,18 @@ impl VM {
             num_locals: 0,
             num_parameters: 0,
         };
-        self.push_frame(
-            Object::Closure {
-                func: Rc::new(func),
-                free: vec![],
-            },
-            0,
-        );
+        self.main_closure = Object::Closure {
+            func: Rc::new(func),
+            free: vec![],
+        };
+        self.push_frame(Frame::new(0, true, 0, 0, vec![]));
         self.current_frame = self.current_frame();
-        self.current_instructions = self.current_frame.instructions();
+        self.current_instructions = self.get_instructions(&self.main_closure);
 
         loop {
             let l = self.current_instructions.len();
-            if self.ip() >= l {
+            let ip = self.ip();
+            if ip >= l {
                 if self.frames.len() == 1 {
                     break;
                 }
@@ -65,9 +77,8 @@ impl VM {
                 }
                 continue;
             }
-            let index = self.ip();
-            let instruction = self.current_instructions.get(index);
-            // println!("ip: {:?}, instruction: {:?}", self.ip(), instruction);
+            let instruction = self.current_instructions.get(ip);
+            // println!("ip: {:?}, instruction: {:?}", ip, instruction);
             if instruction.is_none() {
                 break;
             }
@@ -214,49 +225,17 @@ impl VM {
                         self.incr_ip();
                         //self.push(result);
                     }
-                    Object::Closure { func, free } => {
-                        let ip = self.ip();
-                        self.incr_ip();
-                        self.push_frame(Object::Closure { func, free }, ip - n);
-                        self.count += 1;
-                        // println!("-------------------- push new frame {:?} ---------------------", self.ip());
-                    }
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
             }
             Opcode::Closure(index, free_count) => self.push_closure(index, free_count),
             Opcode::GetFree(index) => {
                 let frame = self.current_frame();
-                match frame.cl() {
-                    Object::Closure { free, .. } => {
-                        let obj = free[index].clone();
-                        self.push(obj);
-                    }
-                    _ => unimplemented!("unimplemented opcode: {:?}", instruction),
-                }
+                self.push(frame.get_free(index));
                 self.incr_ip();
             }
-            Opcode::TailCall(n) => {
-                let func = self.pop();
-                match func {
-                    Object::Builtin(_, _, f) => {
-                        let mut args = Vec::new();
-                        for _ in 0..n {
-                            args.push(self.pop());
-                        }
-                        args.reverse();
-                        let _ = f(args);
-                        self.incr_ip();
-                        //self.push(result);
-                    }
-                    Object::Closure { func, free } => {
-                        let ip = self.ip();
-                        self.set_ip(ip - n);
-                        self.pop_frame();
-                        self.push_frame(Object::Closure { func, free }, ip - n);
-                    }
-                    _ => unimplemented!("unimplemented function: {:?}", func),
-                }
+            Opcode::TailCall(_) => {
+                unimplemented!("unimplemented opcode: {:?}", instruction);
             }
             Opcode::Return => {
                 let result = self.pop();
@@ -284,12 +263,13 @@ impl VM {
         self.constants = constants;
     }
 
-    pub fn push_frame(&mut self, cl: Object, base_pointer: usize) {
-        let frame = Frame::new(cl, base_pointer, 0);
+    pub fn push_frame(&mut self, frame: Frame) {
         self.frames.push(frame);
         self.frame_index += 1;
         self.current_frame = self.current_frame();
-        self.current_instructions = self.current_frame.instructions();
+        self.current_instructions =
+            self.get_instructions(&self.globals[self.current_frame.get_index()]);
+        // println!("push frame: {:?}", self.current_instructions);
     }
 
     pub fn current_frame(&mut self) -> Box<Frame> {
@@ -301,7 +281,12 @@ impl VM {
         self.frame_index -= 1;
         if self.frame_index > 0 {
             self.current_frame = self.current_frame();
-            self.current_instructions = self.current_frame.instructions();
+            if self.current_frame.is_main() {
+                self.current_instructions = self.get_instructions(&self.main_closure);
+            } else {
+                self.current_instructions =
+                    self.get_instructions(&self.globals[self.current_frame.get_index()]);
+            }
         }
     }
 
@@ -322,15 +307,16 @@ impl VM {
         let free = self.stack.split_off(self.sp - free_count);
         self.sp -= free_count;
         // println!("free: {}, {} {:?}", self.sp, free_count, free);
-        let closure = Object::Closure {
-            func: Rc::new(self.globals[const_index].clone()),
-            free,
-        };
+        // let closure = Object::Closure {
+        //     func: Rc::new(self.globals[const_index].clone()),
+        //     free,
+        // };
         // self.push(closure);
         // self.incr_ip();
         let ip = self.ip();
         self.incr_ip();
-        self.push_frame(closure, ip - free_count);
+        let frame = Frame::new(const_index, false, 0, ip - free_count, free);
+        self.push_frame(frame);
         self.count += 1;
     }
 }
