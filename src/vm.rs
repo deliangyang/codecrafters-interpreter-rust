@@ -1,7 +1,4 @@
-use std::{
-    process::exit,
-    rc::Rc,
-};
+use std::{process::exit, rc::Rc};
 
 use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
@@ -329,8 +326,12 @@ impl VM {
             func: Rc::new(self.globals[const_index].clone()),
             free,
         };
-        self.push(closure);
+        // self.push(closure);
+        // self.incr_ip();
+        let ip = self.ip();
         self.incr_ip();
+        self.push_frame(closure, ip - free_count);
+        self.count += 1;
     }
 }
 

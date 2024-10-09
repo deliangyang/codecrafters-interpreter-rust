@@ -241,6 +241,7 @@ impl Compiler {
                         let index = self.builtins.get_index(ident.0.as_str());
                         if index.is_some() {
                             self.emit(Opcode::GetBuiltin(index.unwrap()));
+                            self.emit(Opcode::Call(args.len()));
                         } else {
                             let symbol = self.symbols.borrow_mut().resolve(ident.0.as_str());
                             if symbol.is_none() {
@@ -252,8 +253,6 @@ impl Compiler {
                     }
                     _ => unimplemented!("Callee not implemented: {:?}", callee),
                 };
-
-                self.emit(Opcode::Call(args.len()));
             }
             ExprType::If {
                 condition,
