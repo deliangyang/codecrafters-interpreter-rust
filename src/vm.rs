@@ -12,8 +12,9 @@ pub struct VM {
     frame_index: usize,
     count: usize,
     current_frame: Box<Frame>,
-    current_instructions: Vec<Opcode>,
-    main_closure: Object,
+    current_instructions: Rc<Vec<Opcode>>,
+    main_closure: Vec<Opcode>,
+    closures: Vec<Rc<Vec<Opcode>>>,
 }
 
 const NIL: Object = Object::Nil;
@@ -34,8 +35,9 @@ impl VM {
             frame_index: 0,
             count: 0,
             current_frame: Box::new(Frame::new(0, true, 0, 0, vec![])),
-            current_instructions: Vec::new(),
-            main_closure: Object::Nil,
+            current_instructions: Rc::new(vec![]),
+            main_closure: vec![],
+            closures: vec![Rc::new(vec![]); 2048],
         }
     }
 
@@ -51,18 +53,10 @@ impl VM {
     }
 
     pub fn run(&mut self, instructions: Vec<Opcode>) -> Object {
-        let func = Object::CompiledFunction {
-            instructions,
-            num_locals: 0,
-            num_parameters: 0,
-        };
-        self.main_closure = Object::Closure {
-            func: Rc::new(func),
-            free: vec![],
-        };
+        self.main_closure = instructions.clone();
+        self.current_instructions = Rc::new(instructions);
         self.push_frame(Frame::new(0, true, 0, 0, vec![]));
         self.current_frame = self.current_frame();
-        self.current_instructions = self.get_instructions(&self.main_closure);
 
         loop {
             let l = self.current_instructions.len();
@@ -267,8 +261,20 @@ impl VM {
         self.frames.push(frame);
         self.frame_index += 1;
         self.current_frame = self.current_frame();
-        self.current_instructions =
-            self.get_instructions(&self.globals[self.current_frame.get_index()]);
+        if self.current_frame.is_main() {
+            self.current_instructions = Rc::new(self.main_closure.clone());
+        } else {
+            let instructions = self.closures.get(self.current_frame.get_index());
+            if instructions.unwrap().len() > 0 {
+                self.current_instructions = instructions.unwrap().clone();
+            } else {
+                let object = self.globals[self.current_frame.get_index()].clone();
+                let instructions = self.get_instructions(&object);
+                // println!("closure: {:?}", object);
+                self.closures[self.current_frame.get_index()] = Rc::new(instructions.clone());
+                self.current_instructions = Rc::new(instructions);
+            }
+        }
         // println!("push frame: {:?}", self.current_instructions);
     }
 
@@ -282,10 +288,9 @@ impl VM {
         if self.frame_index > 0 {
             self.current_frame = self.current_frame();
             if self.current_frame.is_main() {
-                self.current_instructions = self.get_instructions(&self.main_closure);
+                self.current_instructions = Rc::new(self.main_closure.clone());
             } else {
-                self.current_instructions =
-                    self.get_instructions(&self.globals[self.current_frame.get_index()]);
+                self.current_instructions = self.closures[self.current_frame.get_index()].clone();
             }
         }
     }

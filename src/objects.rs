@@ -32,7 +32,6 @@ pub enum Object {
     },
     Closure {
         func: Rc<Object>,
-        free: Vec<Object>,
     },
 }
 
@@ -118,8 +117,8 @@ impl Display for Object {
                     num_locals, num_parameters, instructions
                 )
             }
-            Object::Closure { func, free } => {
-                write!(f, "closure of {:?} with free variables {:?}", func, free)
+            Object::Closure { func } => {
+                write!(f, "closure of {:?}", func)
             }
         }
     }
