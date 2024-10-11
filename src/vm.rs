@@ -2,7 +2,7 @@ use std::{process::exit, vec};
 
 use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
-pub struct VM {
+pub struct VM<'a> {
     constants: Vec<Object>,
     stack: Vec<Object>,
     globals: Vec<Object>,
@@ -14,7 +14,7 @@ pub struct VM {
     current_frame: Box<Frame>,
     main_len: usize,
     end_ip: usize,
-    instructions: Vec<Opcode>,
+    instructions: Vec<&'a Opcode>,
 }
 
 const NIL: Object = Object::Nil;
@@ -23,8 +23,8 @@ const NIL: Object = Object::Nil;
 
 const GLOBALS_SIZE: usize = 65536;
 
-impl VM {
-    pub fn new(ins: (usize, Vec<Opcode>)) -> VM {
+impl<'a> VM<'a> {
+    pub fn new(ins: (usize, Vec<&'a Opcode>)) -> VM {
         VM {
             constants: Vec::new(),
             stack: Vec::new(),
@@ -57,7 +57,7 @@ impl VM {
                 }
                 continue;
             }
-            let instruction = self.instructions[ip].clone();
+            let instruction = self.instructions[ip];
             // println!("ip: {:?}, instruction: {:?}", ip, instruction);
             self.execute(instruction);
         }
@@ -80,7 +80,7 @@ impl VM {
         obj
     }
 
-    fn execute(&mut self, instruction: Opcode) {
+    fn execute(&mut self, instruction: &Opcode) {
         match instruction {
             Opcode::Add
             | Opcode::Divide
@@ -121,25 +121,25 @@ impl VM {
                 if obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    self.set_ip(pos);
+                    self.set_ip(*pos);
                 }
             }
             Opcode::Exit(code) => {
-                exit(code as i32);
+                exit(*code as i32);
             }
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    self.set_ip(pos);
+                    self.set_ip(*pos);
                 } else {
                     self.incr_ip();
                 }
             }
             Opcode::Jump(pos) => {
-                self.set_ip(pos);
+                self.set_ip(*pos);
             }
             Opcode::LoadConstant(index) => {
-                self.push(self.constants[index].clone());
+                self.push(self.constants[*index].clone());
                 self.incr_ip();
             }
             Opcode::Pop => {
@@ -163,7 +163,7 @@ impl VM {
                 self.incr_ip();
             }
             Opcode::Print(n) => {
-                for _ in 0..n {
+                for _ in 0..*n {
                     let obj = self.pop();
                     print!("{} ", obj);
                 }
@@ -175,16 +175,16 @@ impl VM {
                 self.incr_ip();
             }
             Opcode::GetGlobal(index) => {
-                self.push(self.globals[index].clone());
+                self.push(self.globals[*index].clone());
                 self.incr_ip();
             }
             Opcode::SetGlobal(index) => {
                 let obj = self.pop();
-                self.globals[index] = obj;
+                self.globals[*index] = obj;
                 self.incr_ip();
             }
             Opcode::GetBuiltin(index) => {
-                let obj = self.builtins.get_by_index(index);
+                let obj = self.builtins.get_by_index(*index);
                 if obj.is_none() {
                     unimplemented!("builtin not found: {:?}", index);
                 }
@@ -205,10 +205,10 @@ impl VM {
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
             }
-            Opcode::Closure(index, free_count) => self.push_closure(index, free_count),
+            Opcode::Closure(index, free_count) => self.push_closure(*index, *free_count),
             Opcode::GetFree(index) => {
                 let frame = self.current_frame();
-                self.push(frame.get_free(index));
+                self.push(frame.get_free(*index));
                 self.incr_ip();
             }
             Opcode::TailCall(_) => {
@@ -352,7 +352,8 @@ mod tests {
         let program = parser.parse();
         let mut compiler = Compiler::new(program);
         compiler.compile();
-        let mut vm = VM::new(compiler.get_instructions());
+        let (l, codes) = compiler.get_instructions();
+        let mut vm = VM::new((l, codes.iter().map(|x|x).collect()));
         vm.define_constants(compiler.constants);
         vm.run()
     }
