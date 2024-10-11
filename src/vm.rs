@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, process::exit, rc::Rc, vec};
+use std::{process::exit, vec};
 
 use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
@@ -12,9 +12,9 @@ pub struct VM {
     frame_index: usize,
     count: usize,
     current_frame: Box<Frame>,
-    current_instructions: Rc<Vec<Opcode>>,
-    main_closure: Vec<Opcode>,
-    closures: Vec<Rc<Vec<Opcode>>>,
+    main_len: usize,
+    end_ip: usize,
+    instructions: Vec<Opcode>,
 }
 
 const NIL: Object = Object::Nil;
@@ -24,44 +24,30 @@ const NIL: Object = Object::Nil;
 const GLOBALS_SIZE: usize = 65536;
 
 impl VM {
-    pub fn new() -> VM {
+    pub fn new(ins: (usize, Vec<Opcode>)) -> VM {
         VM {
             constants: Vec::new(),
             stack: Vec::new(),
+            main_len: ins.0,
+            instructions: ins.1,
             globals: vec![NIL; GLOBALS_SIZE],
             builtins: Builtins::new(),
+            end_ip: ins.0,
             sp: 0,
             frames: Vec::new(),
             frame_index: 0,
             count: 0,
-            current_frame: Box::new(Frame::new(0, true, 0, 0, vec![])),
-            current_instructions: Rc::new(vec![]),
-            main_closure: vec![],
-            closures: vec![Rc::new(vec![]); 2048],
+            current_frame: Box::new(Frame::new(0, true, 0, ins.0, 0, vec![])),
         }
     }
 
-    fn get_instructions(&self, cl: &Object) -> Vec<Opcode> {
-        match cl {
-            Object::Closure { func, .. } => match func.borrow() {
-                Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
-                _ => vec![],
-            },
-            Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
-            _ => vec![],
-        }
-    }
-
-    pub fn run(&mut self, instructions: Vec<Opcode>) -> Object {
-        self.main_closure = instructions.clone();
-        self.current_instructions = Rc::new(instructions);
-        self.push_frame(Frame::new(0, true, 0, 0, vec![]));
+    pub fn run(&mut self) -> Object {
+        self.push_frame(Frame::new(0, true, 0, self.main_len, 0, vec![]));
         self.current_frame = self.current_frame();
-
+        // println!("run: {:?}", self.instructions);
         loop {
-            let l = self.current_instructions.len();
             let ip = self.ip();
-            if ip >= l {
+            if ip >= self.end_ip {
                 if self.frames.len() == 1 {
                     break;
                 }
@@ -71,12 +57,9 @@ impl VM {
                 }
                 continue;
             }
-            let instruction = self.current_instructions.get(ip);
+            let instruction = self.instructions[ip].clone();
             // println!("ip: {:?}, instruction: {:?}", ip, instruction);
-            if instruction.is_none() {
-                break;
-            }
-            self.execute(instruction.unwrap().clone());
+            self.execute(instruction);
         }
 
         println!("count: {:?}", self.count);
@@ -261,21 +244,12 @@ impl VM {
         self.frames.push(frame);
         self.frame_index += 1;
         self.current_frame = self.current_frame();
-        if self.current_frame.is_main() {
-            self.current_instructions = Rc::new(self.main_closure.clone());
-        } else {
-            let instructions = self.closures.get(self.current_frame.get_index());
-            if instructions.unwrap().len() > 0 {
-                self.current_instructions = instructions.unwrap().clone();
-            } else {
-                let object = self.globals[self.current_frame.get_index()].clone();
-                let instructions = self.get_instructions(&object);
-                // println!("closure: {:?}", object);
-                self.closures[self.current_frame.get_index()] = Rc::new(instructions.clone());
-                self.current_instructions = Rc::new(instructions);
-            }
-        }
-        // println!("push frame: {:?}", self.current_instructions);
+        self.end_ip = self.current_frame.get_end_ip();
+        // println!(
+        //     "push frame: {:?} {:?}",
+        //     self.ip(),
+        //     self.current_frame.get_end_ip()
+        // );
     }
 
     pub fn current_frame(&mut self) -> Box<Frame> {
@@ -287,11 +261,7 @@ impl VM {
         self.frame_index -= 1;
         if self.frame_index > 0 {
             self.current_frame = self.current_frame();
-            if self.current_frame.is_main() {
-                self.current_instructions = Rc::new(self.main_closure.clone());
-            } else {
-                self.current_instructions = self.closures[self.current_frame.get_index()].clone();
-            }
+            self.end_ip = self.current_frame.get_end_ip();
         }
     }
 
@@ -318,11 +288,26 @@ impl VM {
         // };
         // self.push(closure);
         // self.incr_ip();
-        let ip = self.ip();
-        self.incr_ip();
-        let frame = Frame::new(const_index, false, 0, ip - free_count, free);
-        self.push_frame(frame);
-        self.count += 1;
+        let value = self.globals[const_index].clone();
+        if let Object::CompiledFunction {
+            start,
+            len,
+            num_locals: _,
+            num_parameters: _,
+        } = value
+        {
+            self.incr_ip();
+            let frame = Frame::new(
+                const_index,
+                false,
+                self.main_len + start,
+                self.main_len + start + len,
+                self.main_len + start,
+                free,
+            );
+            self.push_frame(frame);
+            self.count += 1;
+        }
     }
 }
 
@@ -365,10 +350,10 @@ mod tests {
         let lexer = Lexing::new(code);
         let mut parser = Parser::new(lexer);
         let program = parser.parse();
-        let mut vm = VM::new();
         let mut compiler = Compiler::new(program);
         compiler.compile();
+        let mut vm = VM::new(compiler.get_instructions());
         vm.define_constants(compiler.constants);
-        vm.run(compiler.instructions)
+        vm.run()
     }
 }

@@ -16,6 +16,7 @@ pub struct Compiler {
     pre_instructions: Vec<Opcode>,
     pub builtins: Builtins,
     pub symbols: Rc<RefCell<SymbolTable>>,
+    pub closure_ins: Vec<Opcode>,
 }
 
 impl Compiler {
@@ -27,6 +28,7 @@ impl Compiler {
             builtins: Builtins::new(),
             pre_instructions: vec![],
             symbols: Rc::new(RefCell::new(SymbolTable::new())),
+            closure_ins: vec![],
         }
     }
 
@@ -34,6 +36,13 @@ impl Compiler {
         for statement in self.program.clone() {
             self.compile_statement(&statement);
         }
+    }
+
+    pub fn get_instructions(&self) -> (usize, Vec<Opcode>) {
+        let l = self.instructions.len();
+        let mut instractions = self.instructions.clone();
+        instractions.extend(self.closure_ins.clone());
+        (l, instractions)
     }
 
     fn compile_statement(&mut self, stmt: &Stmt) {
@@ -78,10 +87,15 @@ impl Compiler {
                 let num_locals = symbols.num_definitions;
                 let num_parameters = args.len();
 
+                let start = self.instructions.len();
+
+                self.closure_ins.extend(instraction.clone());
+
                 let compiled_object = Object::CompiledFunction {
-                    instructions: instraction,
                     num_locals,
                     num_parameters,
+                    start,
+                    len: instraction.len(),
                 };
                 let index = self.constants.len();
                 self.constants.push(compiled_object);

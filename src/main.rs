@@ -85,9 +85,9 @@ fn main() {
             }
             let mut compile = Compiler::new(program);
             compile.compile();
-            let mut vm = VM::new();
+            let mut vm = VM::new(compile.get_instructions());
             vm.define_constants(compile.constants);
-            let result = vm.run(compile.instructions);
+            let result = vm.run();
             println!("result: {:?}", result);
         }
         "parse" => {
