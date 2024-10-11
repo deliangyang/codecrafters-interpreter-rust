@@ -12,3 +12,4 @@ pub mod opcode;
 pub mod symbol;
 pub mod vm;
 pub mod frame;
+pub mod container;

@@ -1,22 +1,22 @@
 use crate::objects::Object;
 
 #[derive(Debug, Clone)]
-pub struct Frame {
+pub struct Frame<'a> {
     const_index: usize,
     is_main: bool,
     ip: usize,           // ip is the index of the instruction to be executed
     base_pointer: usize, // base_pointer is the index of the first local variable in the stack
-    frees: Vec<Object>,  // frees is a vector of free variables
+    frees: Vec<&'a Object>,  // frees is a vector of free variables
 }
 
-impl Frame {
+impl<'a> Frame<'a> {
     pub fn new(
         const_index: usize,
         is_main: bool,
         ip: usize,
         base_pointer: usize,
-        frees: Vec<Object>,
-    ) -> Frame {
+        frees: Vec<&'a Object>,
+    ) -> Frame<'a> {
         Frame {
             const_index,
             is_main,
@@ -62,11 +62,11 @@ impl Frame {
         self.is_main
     }
 
-    pub fn get_frees(&self) -> Vec<Object> {
+    pub fn get_frees(&self) -> Vec<&'a Object> {
         self.frees.clone()
     }
 
-    pub fn get_free(&self, index: usize) -> Object {
-        self.frees[index].clone()
+    pub fn get_free(&self, index: usize) -> &'a Object {
+        self.frees[index]
     }
 }

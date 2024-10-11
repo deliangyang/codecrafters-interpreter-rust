@@ -1,20 +1,20 @@
-use std::{borrow::Borrow, process::exit, rc::Rc, vec};
+use std::{borrow::Borrow, cell::RefCell, process::exit, rc::Rc, vec};
 
-use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
+use crate::{builtins::Builtins, container::Container, frame::Frame, objects::Object, opcode::Opcode};
 
-pub struct VM {
-    constants: Vec<Object>,
+pub struct VM<'a> {
+    constants: Vec<&'a Object>,
     stack: Vec<Object>,
-    globals: Vec<Object>,
+    globals: Vec<Rc<RefCell<Object>>>,
     builtins: Builtins,
     sp: usize, // stack pointer
-    frames: Vec<Frame>,
+    frames: RefCell<Vec<Frame<'a>>>,
     frame_index: usize,
     count: usize,
-    current_frame: Box<Frame>,
-    current_instructions: Rc<Vec<Opcode>>,
-    main_closure: Vec<Opcode>,
-    closures: Vec<Rc<Vec<Opcode>>>,
+    current_frame: Frame<'a>,
+    current_instructions: Vec<&'a Opcode>,
+    main_closure: Vec<&'a Opcode>,
+    closures: Vec<Vec<&'a Opcode>>,
 }
 
 const NIL: Object = Object::Nil;
@@ -23,50 +23,60 @@ const NIL: Object = Object::Nil;
 
 const GLOBALS_SIZE: usize = 65536;
 
-impl VM {
-    pub fn new() -> VM {
+impl<'a> VM<'a> {
+    pub fn new() -> VM<'a> {
+        let frame: Frame<'a> = Frame::new(0, true, 0, 0, vec![]);
         VM {
             constants: Vec::new(),
             stack: Vec::new(),
-            globals: vec![NIL; GLOBALS_SIZE],
+            globals: vec![Rc::new(RefCell::new(NIL)); GLOBALS_SIZE],
             builtins: Builtins::new(),
             sp: 0,
-            frames: Vec::new(),
+            frames: RefCell::new(Vec::new()),
             frame_index: 0,
             count: 0,
-            current_frame: Box::new(Frame::new(0, true, 0, 0, vec![])),
-            current_instructions: Rc::new(vec![]),
+            current_frame: frame,
+            current_instructions: vec![],
             main_closure: vec![],
-            closures: vec![Rc::new(vec![]); 2048],
+            closures: vec![vec![]; 2048],
         }
     }
 
-    fn get_instructions(&self, cl: &Object) -> Vec<Opcode> {
-        match cl {
-            Object::Closure { func, .. } => match func.borrow() {
-                Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
+    fn get_instructions(&self, cl: &'a Object) -> Vec<&'a Opcode> {
+        return match cl {
+            Object::Closure { func, .. } => match func.as_ref() {
+                Object::CompiledFunction { instructions, .. } => {
+                    instructions.iter().map(|x| x).collect()
+                }
                 _ => vec![],
             },
-            Object::CompiledFunction { instructions, .. } => instructions.to_vec(),
+            Object::CompiledFunction { instructions, .. } => {
+                let mut ins = vec![];
+                for i in instructions.iter() {
+                    ins.push(i);
+                }
+                ins.to_vec()
+            }
             _ => vec![],
-        }
+        };
     }
 
-    pub fn run(&mut self, instructions: Vec<Opcode>) -> Object {
-        self.main_closure = instructions.clone();
-        self.current_instructions = Rc::new(instructions);
-        self.push_frame(Frame::new(0, true, 0, 0, vec![]));
+    pub fn run(&mut self, instructions: Vec<&'a Opcode>) -> Object {
+        self.main_closure = instructions.iter().map(|x| *x).collect();
+        self.current_instructions = instructions.iter().map(|x| *x).collect();
+        let frame: Frame<'a> = Frame::new(0, true, 0, 0, vec![]);
+        self.push_frame(frame);
         self.current_frame = self.current_frame();
 
         loop {
             let l = self.current_instructions.len();
             let ip = self.ip();
             if ip >= l {
-                if self.frames.len() == 1 {
+                if self.frames.borrow_mut().len() == 1 {
                     break;
                 }
                 self.pop_frame();
-                if self.frames.is_empty() {
+                if self.frames.borrow_mut().is_empty() {
                     break;
                 }
                 continue;
@@ -76,12 +86,12 @@ impl VM {
             if instruction.is_none() {
                 break;
             }
-            self.execute(instruction.unwrap().clone());
+            self.execute(instruction.unwrap());
         }
 
         println!("count: {:?}", self.count);
         if self.stack.is_empty() {
-            return NIL;
+            return Object::Nil;
         }
         self.pop()
     }
@@ -97,7 +107,27 @@ impl VM {
         obj
     }
 
-    fn execute(&mut self, instruction: Opcode) {
+    fn operate(&mut self, op: &Opcode) -> Object {
+        let right = self.pop();
+        let left = self.pop();
+        let result = match (left, right) {
+            (Object::Number(l), Object::Number(r)) => match op {
+                Opcode::Add => Object::Number(l + r),
+                Opcode::Divide => Object::Number(l / r),
+                Opcode::Minus => Object::Number(l - r),
+                Opcode::Multiply => Object::Number(l * r),
+                Opcode::Mod => Object::Number(l % r),
+                Opcode::GreaterThan => Object::Boolean(l > r),
+                Opcode::LessThan => Object::Boolean(l < r),
+                Opcode::EqualEqual => Object::Boolean(l == r),
+                _ => Object::Nil,
+            },
+            _ => Object::Nil,
+        };
+        return result;
+    }
+
+    fn execute(&mut self, instruction: &Opcode) {
         match instruction {
             Opcode::Add
             | Opcode::Divide
@@ -107,22 +137,7 @@ impl VM {
             | Opcode::LessThan
             | Opcode::EqualEqual
             | Opcode::GreaterThan => {
-                let right = self.pop();
-                let left = self.pop();
-                let result = match (left, right) {
-                    (Object::Number(l), Object::Number(r)) => match instruction {
-                        Opcode::Add => Object::Number(l + r),
-                        Opcode::Divide => Object::Number(l / r),
-                        Opcode::Minus => Object::Number(l - r),
-                        Opcode::Multiply => Object::Number(l * r),
-                        Opcode::Mod => Object::Number(l % r),
-                        Opcode::GreaterThan => Object::Boolean(l > r),
-                        Opcode::LessThan => Object::Boolean(l < r),
-                        Opcode::EqualEqual => Object::Boolean(l == r),
-                        _ => Object::Nil,
-                    },
-                    _ => Object::Nil,
-                };
+                let result = self.operate(instruction);
                 self.push(result);
                 self.incr_ip();
             }
@@ -138,25 +153,25 @@ impl VM {
                 if obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    self.set_ip(pos);
+                    self.set_ip(*pos);
                 }
             }
             Opcode::Exit(code) => {
-                exit(code as i32);
+                exit(*code as i32);
             }
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    self.set_ip(pos);
+                    self.set_ip(*pos);
                 } else {
                     self.incr_ip();
                 }
             }
             Opcode::Jump(pos) => {
-                self.set_ip(pos);
+                self.set_ip(*pos);
             }
             Opcode::LoadConstant(index) => {
-                self.push(self.constants[index].clone());
+                self.push(self.constants[*index].clone());
                 self.incr_ip();
             }
             Opcode::Pop => {
@@ -164,23 +179,27 @@ impl VM {
                 self.incr_ip();
             }
             Opcode::Abs => {
-                let obj = self.pop();
-                self.push(Object::Number(match obj {
+                let x = self.pop();
+                let obj = x.borrow();
+                let number = match obj {
                     Object::Number(n) => n.abs(),
                     _ => 0.0,
-                }));
+                };
+                self.push(Object::Number(number));
                 self.incr_ip();
             }
             Opcode::Nagetive => {
-                let obj = self.pop();
-                self.push(Object::Number(match obj {
-                    Object::Number(n) => -n,
+                let x = self.pop();
+                let obj = x.borrow();
+                let number = Object::Number(match obj {
+                    Object::Number(n) => -(*n),
                     _ => 0.0,
-                }));
+                });
+                self.push(number);
                 self.incr_ip();
             }
             Opcode::Print(n) => {
-                for _ in 0..n {
+                for _ in 0..*n {
                     let obj = self.pop();
                     print!("{} ", obj);
                 }
@@ -192,24 +211,27 @@ impl VM {
                 self.incr_ip();
             }
             Opcode::GetGlobal(index) => {
-                self.push(self.globals[index].clone());
+                let result = self.globals[*index].clone();
+                let obj = result.borrow_mut();
+                self.push(obj.to_owned());
                 self.incr_ip();
             }
             Opcode::SetGlobal(index) => {
                 let obj = self.pop();
-                self.globals[index] = obj;
+                self.globals[*index] = Rc::new(RefCell::new(obj));
                 self.incr_ip();
             }
             Opcode::GetBuiltin(index) => {
-                let obj = self.builtins.get_by_index(index);
+                let obj = self.builtins.get_by_index(*index);
                 if obj.is_none() {
                     unimplemented!("builtin not found: {:?}", index);
                 }
-                self.push(obj.unwrap().clone());
+                self.push(obj.unwrap());
                 self.incr_ip();
             }
             Opcode::Call(n) => {
-                let func = self.pop();
+                let x = self.pop();
+                let func = x.borrow();
                 // println!("----------> call: {:?}", func);
                 match func {
                     Object::Builtin(_, _, f) => {
@@ -222,10 +244,10 @@ impl VM {
                     _ => unimplemented!("unimplemented function: {:?}", func),
                 }
             }
-            Opcode::Closure(index, free_count) => self.push_closure(index, free_count),
+            Opcode::Closure(index, free_count) => self.push_closure(*index, *free_count),
             Opcode::GetFree(index) => {
                 let frame = self.current_frame();
-                self.push(frame.get_free(index));
+                self.push(frame.get_free(*index).clone());
                 self.incr_ip();
             }
             Opcode::TailCall(_) => {
@@ -253,58 +275,62 @@ impl VM {
         }
     }
 
-    pub fn define_constants(&mut self, constants: Vec<Object>) {
+    pub fn define_constants(&mut self, constants: Vec<&'a Object>) {
         self.constants = constants;
     }
 
-    pub fn push_frame(&mut self, frame: Frame) {
-        self.frames.push(frame);
+    pub fn push_frame(&mut self, frame: Frame<'a>) {
+        self.frames.borrow_mut().push(frame);
         self.frame_index += 1;
         self.current_frame = self.current_frame();
         if self.current_frame.is_main() {
-            self.current_instructions = Rc::new(self.main_closure.clone());
+            self.current_instructions = self.main_closure.iter().map(|x| *x).collect();
         } else {
             let instructions = self.closures.get(self.current_frame.get_index());
             if instructions.unwrap().len() > 0 {
-                self.current_instructions = instructions.unwrap().clone();
+                self.current_instructions = instructions.unwrap().iter().map(|x| *x).collect();
             } else {
-                let object = self.globals[self.current_frame.get_index()].clone();
-                let instructions = self.get_instructions(&object);
+                let object = self.globals[self.current_frame.get_index()];
+                let ins = self.get_instructions(object);
                 // println!("closure: {:?}", object);
-                self.closures[self.current_frame.get_index()] = Rc::new(instructions.clone());
-                self.current_instructions = Rc::new(instructions);
+                self.closures[self.current_frame.get_index()] = ins.iter().map(|x| *x).collect();
+                let instructions = self.closures.get(self.current_frame.get_index());
+                self.current_instructions = instructions.unwrap().iter().map(|x| *x).collect();
             }
         }
         // println!("push frame: {:?}", self.current_instructions);
     }
 
-    pub fn current_frame(&mut self) -> Box<Frame> {
-        Box::new(self.frames[self.frame_index - 1].clone())
+    pub fn current_frame(&mut self) -> Frame<'a> {
+        self.frames.borrow_mut()[self.frame_index - 1].clone()
     }
 
     pub fn pop_frame(&mut self) {
-        self.frames.pop();
+        self.frames.borrow_mut().pop();
         self.frame_index -= 1;
         if self.frame_index > 0 {
             self.current_frame = self.current_frame();
             if self.current_frame.is_main() {
-                self.current_instructions = Rc::new(self.main_closure.clone());
+                self.current_instructions = self.main_closure.iter().map(|x| *x).collect();
             } else {
-                self.current_instructions = self.closures[self.current_frame.get_index()].clone();
+                self.current_instructions = self.closures[self.current_frame.get_index()]
+                    .iter()
+                    .map(|x| *x)
+                    .collect();
             }
         }
     }
 
     pub fn incr_ip(&mut self) {
-        self.frames[self.frame_index - 1].incr_ip();
+        self.frames.borrow_mut()[self.frame_index - 1].incr_ip();
     }
 
     pub fn set_ip(&mut self, ip: usize) {
-        self.frames[self.frame_index - 1].set_ip(ip);
+        self.frames.borrow_mut()[self.frame_index - 1].set_ip(ip);
     }
 
     pub fn ip(&mut self) -> usize {
-        self.frames[self.frame_index - 1].ip()
+        self.frames.borrow_mut()[self.frame_index - 1].ip()
     }
 
     pub fn push_closure(&mut self, const_index: usize, free_count: usize) {
@@ -320,7 +346,13 @@ impl VM {
         // self.incr_ip();
         let ip = self.ip();
         self.incr_ip();
-        let frame = Frame::new(const_index, false, 0, ip - free_count, free);
+        let frame = Frame::new(
+            const_index,
+            false,
+            0,
+            ip - free_count,
+            free.iter().map(|x| x).collect(),
+        );
         self.push_frame(frame);
         self.count += 1;
     }
