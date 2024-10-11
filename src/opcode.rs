@@ -15,6 +15,7 @@ pub enum Opcode {
     SetLocal(usize),
     GetLocal(usize),
     GetBuiltin(usize),
+    SetClouse(usize),
     Closure(usize, usize),
     GetFree(usize),
     CurrentClosure,

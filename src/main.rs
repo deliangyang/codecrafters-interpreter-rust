@@ -5,6 +5,7 @@ use std::path::Path;
 use std::process::exit;
 
 use codecrafters_interpreter::compiler::Compiler;
+use codecrafters_interpreter::compiler::Stack;
 use codecrafters_interpreter::evaluator::Evaluator;
 use codecrafters_interpreter::imports::Imports;
 use codecrafters_interpreter::lexer::Lexing;
@@ -62,6 +63,11 @@ fn main() {
                 }
             }
 
+            println!("\nclosures:");
+            for (i, closure) in compile.closures.iter().enumerate() {
+                println!("\t{:04} {:?}", i, closure);
+            }
+
             println!("\ninstructions:");
             for (i, instruction) in compile.instructions.iter().enumerate() {
                 match instruction {
@@ -86,8 +92,13 @@ fn main() {
             let mut compile = Compiler::new(program);
             compile.compile();
             let mut vm = VM::new();
-            vm.define_constants(compile.constants);
-            let result = vm.run(compile.instructions);
+            vm.define_constants(compile.constants.iter().map(|x| x).collect());
+            vm.set_closures(compile.closures);
+            let result = vm.run(Stack{
+                closure: compile.instructions,
+                num_locals: 0,
+                num_parameters: 0,
+            });
             println!("result: {:?}", result);
         }
         "parse" => {

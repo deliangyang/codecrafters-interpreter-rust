@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{ExprType, Literal, Program, Stmt},
@@ -16,6 +16,14 @@ pub struct Compiler {
     pre_instructions: Vec<Opcode>,
     pub builtins: Builtins,
     pub symbols: Rc<RefCell<SymbolTable>>,
+    pub closures: HashMap<usize, Stack>,
+}
+
+#[derive(Debug)]
+pub struct Stack {
+    pub closure: Vec<Opcode>,
+    pub num_locals: usize,
+    pub num_parameters: usize,
 }
 
 impl Compiler {
@@ -27,6 +35,7 @@ impl Compiler {
             builtins: Builtins::new(),
             pre_instructions: vec![],
             symbols: Rc::new(RefCell::new(SymbolTable::new())),
+            closures: HashMap::new(),
         }
     }
 
@@ -78,15 +87,13 @@ impl Compiler {
                 let num_locals = symbols.num_definitions;
                 let num_parameters = args.len();
 
-                let compiled_object = Object::CompiledFunction {
-                    instructions: instraction,
+                self.closures.insert(symbol.index, Stack{
+                    closure: instraction,
                     num_locals,
                     num_parameters,
-                };
-                let index = self.constants.len();
-                self.constants.push(compiled_object);
-                self.emit_load_constant(index); // Load function object
-                self.emit(Opcode::SetGlobal(symbol.index)); // Set global variable
+                });
+                // self.emit_load_constant(index); // Load function object
+                // self.emit(Opcode::SetClouse(symbol.index)); // Set global variable
             }
             Stmt::For {
                 init,
