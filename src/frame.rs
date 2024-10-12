@@ -81,7 +81,7 @@ impl Frame {
 }
 
 pub struct FramePool {
-    pool: Vec<Frame>,
+    pub pool: Vec<Frame>,
 }
 
 impl FramePool {

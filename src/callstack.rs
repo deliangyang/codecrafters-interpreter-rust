@@ -1,7 +1,7 @@
 use crate::frame::{Frame, FramePool};
 
 pub struct CallStack<'a> {
-    stack: Vec<*mut Frame>,
+    pub stack: Vec<*mut Frame>,
     pub pool: &'a mut FramePool,
 }
 
