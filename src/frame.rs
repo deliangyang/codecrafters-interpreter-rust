@@ -2,12 +2,12 @@ use crate::objects::Object;
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    const_index: usize,
-    is_main: bool,
-    ip: usize, // ip is the index of the instruction to be executed
-    end_ip: usize,
-    base_pointer: usize, // base_pointer is the index of the first local variable in the stack
-    frees: Vec<Object>,  // frees is a vector of free variables
+    pub const_index: usize,
+    pub is_main: bool,
+    pub ip: usize, // ip is the index of the instruction to be executed
+    pub end_ip: usize,
+    pub base_pointer: usize, // base_pointer is the index of the first local variable in the stack
+    pub frees: Vec<Object>,  // frees is a vector of free variables
 }
 
 impl Frame {

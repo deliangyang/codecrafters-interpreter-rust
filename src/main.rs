@@ -62,6 +62,11 @@ fn main() {
                 }
             }
 
+            println!("\nclosures:");
+            for (i, closure) in compile.closure_ins.iter().enumerate() {
+                println!("\t{:04} {:?}", i, closure);
+            }
+
             println!("\ninstructions:");
             for (i, instruction) in compile.instructions.iter().enumerate() {
                 match instruction {
