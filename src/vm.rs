@@ -1,4 +1,4 @@
-use std::{process::exit, vec};
+use std::{mem, process::exit, vec};
 
 use crate::{builtins::Builtins, frame::Frame, objects::Object, opcode::Opcode};
 
@@ -8,10 +8,10 @@ pub struct VM<'a> {
     globals: Vec<Object>,
     builtins: Builtins,
     sp: usize, // stack pointer
-    frames: Vec<Frame>,
+    frames: Vec<*mut Frame>,
     frame_index: usize,
     count: usize,
-    current_frame: Box<Frame>,
+    //current_frame: Option<*mut Frame>,
     main_len: usize,
     end_ip: usize,
     instructions: Vec<&'a Opcode>,
@@ -34,31 +34,33 @@ impl<'a> VM<'a> {
             builtins: Builtins::new(),
             end_ip: ins.0,
             sp: 0,
-            frames: Vec::new(),
+            frames: Vec::with_capacity(1024),
             frame_index: 0,
             count: 0,
-            current_frame: Box::new(Frame::new(0, true, 0, ins.0, 0, vec![])),
+            // current_frame: None,
         }
     }
 
     pub fn run(&mut self) -> Object {
-        self.push_frame(Frame::new(0, true, 0, self.main_len, 0, vec![]));
-        self.current_frame = self.current_frame();
+        self.push_frame(&mut Frame::new(0, true, 0, self.main_len, 0, vec![]));
+        // if let Some(f) = self.current_frame() {
+        //     self.current_frame = f;
+        // }
         // println!("run: {:?}", self.instructions);
         loop {
             let ip = self.ip();
             if ip >= self.end_ip {
-                if self.frames.len() == 1 {
+                if self.frame_index == 1 {
                     break;
                 }
                 self.pop_frame();
-                if self.frames.is_empty() {
+                if self.frame_index == 0 {
                     break;
                 }
                 continue;
             }
             let instruction = self.instructions[ip];
-            // println!("ip: {:?}, instruction: {:?}", ip, instruction);
+            println!("ip: {:?}, instruction: {:?}", ip, instruction);
             self.execute(instruction);
         }
 
@@ -207,7 +209,7 @@ impl<'a> VM<'a> {
             }
             Opcode::Closure(index, free_count) => self.push_closure(*index, *free_count),
             Opcode::GetFree(index) => {
-                let frame = self.current_frame();
+                let frame = self.get_frame();
                 self.push(frame.get_free(*index));
                 self.incr_ip();
             }
@@ -240,41 +242,52 @@ impl<'a> VM<'a> {
         self.constants = constants;
     }
 
-    pub fn push_frame(&mut self, frame: Frame) {
-        self.frames.push(frame);
+    pub fn push_frame(&mut self, frame: *mut Frame) {
+        if self.frames.len() > self.frame_index {
+            let _ = mem::replace(&mut self.frames[self.frame_index], frame);
+            // self.frames.truncate(self.frame_index);
+        } else {
+            self.frames.push(frame);
+        }
         self.frame_index += 1;
-        self.current_frame = self.current_frame();
-        self.end_ip = self.current_frame.get_end_ip();
+        self.end_ip = self.current_frame().unwrap().get_end_ip();
         // println!(
-        //     "push frame: {:?} {:?}",
-        //     self.ip(),
-        //     self.current_frame.get_end_ip()
+        //     "push frame: {:?}",
+        //     self.current_frame(),
         // );
     }
 
-    pub fn current_frame(&mut self) -> Box<Frame> {
-        Box::new(self.frames[self.frame_index - 1].clone())
+    pub fn current_frame(&mut self) -> Option<&mut Frame> {
+        self.frames.get(self.frame_index - 1).map(|&x| unsafe { &mut *x })
     }
 
     pub fn pop_frame(&mut self) {
-        self.frames.pop();
+        // let poped_frame = self.frames.pop();
         self.frame_index -= 1;
         if self.frame_index > 0 {
-            self.current_frame = self.current_frame();
-            self.end_ip = self.current_frame.get_end_ip();
+            self.end_ip = self.current_frame().unwrap().get_end_ip();
         }
+        println!("pop frame {:?}\n----------------------------------->", self.current_frame());
+        for (i, frame) in self.frames.iter().enumerate() {
+            println!("{} {:?}", i, frame);
+        }
+        println!("-----------------");
+    }
+
+    pub fn get_frame(&mut self) -> Frame {
+        self.frames.get(self.frame_index-1).map(|&x| unsafe { &mut *x }).unwrap().clone()
     }
 
     pub fn incr_ip(&mut self) {
-        self.frames[self.frame_index - 1].incr_ip();
+        self.current_frame().unwrap().incr_ip();
     }
 
     pub fn set_ip(&mut self, ip: usize) {
-        self.frames[self.frame_index - 1].set_ip(ip);
+        self.current_frame().unwrap().set_ip(ip);
     }
 
     pub fn ip(&mut self) -> usize {
-        self.frames[self.frame_index - 1].ip()
+        self.current_frame().unwrap().ip()
     }
 
     pub fn push_closure(&mut self, const_index: usize, free_count: usize) {
@@ -289,6 +302,7 @@ impl<'a> VM<'a> {
         // self.push(closure);
         // self.incr_ip();
         let value = self.globals[const_index].clone();
+        println!("value: {:?}", value);
         if let Object::CompiledFunction {
             start,
             len,
@@ -297,7 +311,7 @@ impl<'a> VM<'a> {
         } = value
         {
             self.incr_ip();
-            let frame = Frame::new(
+            let mut frame = Frame::new(
                 const_index,
                 false,
                 self.main_len + start,
@@ -305,7 +319,7 @@ impl<'a> VM<'a> {
                 self.main_len + start,
                 free,
             );
-            self.push_frame(frame);
+            self.push_frame(&mut frame);
             self.count += 1;
         }
     }
@@ -353,7 +367,7 @@ mod tests {
         let mut compiler = Compiler::new(program);
         compiler.compile();
         let (l, codes) = compiler.get_instructions();
-        let mut vm = VM::new((l, codes.iter().map(|x|x).collect()));
+        let mut vm = VM::new((l, codes.iter().map(|x| x).collect()));
         vm.define_constants(compiler.constants);
         vm.run()
     }

@@ -4,7 +4,7 @@ use crate::objects::Object;
 pub struct Frame {
     const_index: usize,
     is_main: bool,
-    ip: usize,           // ip is the index of the instruction to be executed
+    ip: usize, // ip is the index of the instruction to be executed
     end_ip: usize,
     base_pointer: usize, // base_pointer is the index of the first local variable in the stack
     frees: Vec<Object>,  // frees is a vector of free variables
@@ -77,5 +77,30 @@ impl Frame {
 
     pub fn get_end_ip(&self) -> usize {
         self.end_ip
+    }
+}
+
+pub struct FramePool {
+    pool: Vec<Frame>,
+}
+
+impl FramePool {
+    pub fn new() -> Self {
+        FramePool { pool: Vec::new() }
+    }
+
+    pub fn get_frame(&mut self) -> Frame {
+        self.pool.pop().unwrap_or_else(|| Frame {
+            const_index: 0,
+            is_main: false,
+            ip: 0,
+            end_ip: 0,
+            base_pointer: 0,
+            frees: vec![],
+        })
+    }
+
+    pub fn return_frame(&mut self, frame: Frame) {
+        self.pool.push(frame);
     }
 }
