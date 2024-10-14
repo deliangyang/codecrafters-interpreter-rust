@@ -18,6 +18,11 @@ impl<'a> CallStack<'a> {
     }
 
     pub fn pop_frame(&mut self) -> Option<*mut Frame> {
+        println!("pop_frame------------------------>");
+
+        for frame in self.stack.iter() {
+            println!("frame: {:?}", frame);
+        }
         self.stack.pop()
     }
 

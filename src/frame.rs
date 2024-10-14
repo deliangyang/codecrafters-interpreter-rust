@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 #[derive(Debug, Clone)]
 pub struct Frame {
     pub const_index: usize,
@@ -5,8 +7,8 @@ pub struct Frame {
     pub ip: usize, // ip is the index of the instruction to be executed
     pub end_ip: usize,
     pub base_pointer: usize, // base_pointer is the index of the first local variable in the stack
-    pub free_start: usize,  // free_start is the index of the first free variable
-    pub free_len: usize,    // free_len is the number of free variables
+    pub free_start: usize,   // free_start is the index of the first free variable
+    pub free_len: usize,     // free_len is the number of free variables
 }
 
 impl Frame {
@@ -73,6 +75,12 @@ impl Frame {
     }
 }
 
+impl Drop for Frame {
+    fn drop(&mut self) {
+        println!("----------------------------> Dropping frame: {:?}", self);
+    }
+}
+
 pub struct FramePool {
     pub pool: Vec<Frame>,
 }
@@ -96,5 +104,8 @@ impl FramePool {
 
     pub fn return_frame(&mut self, frame: Frame) {
         self.pool.push(frame);
+        for f in self.pool.iter() {
+            println!("++++++++++++++++++++++++++++++frame: {:?}", f);
+        }
     }
 }
