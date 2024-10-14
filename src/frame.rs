@@ -1,3 +1,4 @@
+use crate::objects::Object;
 
 #[derive(Debug, Clone)]
 pub struct Frame {
@@ -8,6 +9,7 @@ pub struct Frame {
     pub base_pointer: usize, // base_pointer is the index of the first local variable in the stack
     pub free_start: usize,   // free_start is the index of the first free variable
     pub free_len: usize,     // free_len is the number of free variables
+    pub fress: Vec<Object>,  // fress is the list of free variables
 }
 
 impl Frame {
@@ -19,6 +21,7 @@ impl Frame {
         base_pointer: usize,
         free_start: usize,
         free_len: usize,
+        frees: Vec<Object>,
     ) -> Frame {
         // println!("base_pointer: {}", base_pointer);
         Frame {
@@ -29,6 +32,7 @@ impl Frame {
             base_pointer,
             free_start,
             free_len,
+            fress: frees,
         }
     }
 
@@ -98,6 +102,7 @@ impl FramePool {
             base_pointer: 0,
             free_start: 0,
             free_len: 0,
+            fress: Vec::new(),
         })
     }
 
