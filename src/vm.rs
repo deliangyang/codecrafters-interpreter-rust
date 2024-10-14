@@ -1,4 +1,4 @@
-use std::{cell::RefCell, mem, process::exit, rc::Rc, vec};
+use std::{mem, process::exit, vec};
 
 use crate::{
     builtins::Builtins,
@@ -16,11 +16,14 @@ pub struct VM<'a> {
     sp: usize, // stack pointer
     frames: Vec<*mut Frame>,
     frame_index: usize,
-    count: usize,
+    // count: usize,
     //current_frame: Option<*mut Frame>,
     main_len: usize,
     end_ip: usize,
     instructions: Vec<&'a Opcode>,
+    frees: Vec<Object>,
+    free_top: usize,
+    free_index: usize,
 }
 
 const NIL: Object = Object::Nil;
@@ -42,7 +45,10 @@ impl<'a> VM<'a> {
             sp: 0,
             frames: Vec::with_capacity(1024),
             frame_index: 0,
-            count: 0,
+            // count: 0,
+            frees: vec![],
+            free_top: 0,
+            free_index: 0,
             // current_frame: None,
         }
     }
@@ -61,15 +67,19 @@ impl<'a> VM<'a> {
 
         println!("ins: {:?}", self.instructions);
         println!("run: {:?}", self.end_ip);
+        let mut count = 1;
         while let Some(frame) = call_stack.current_frame() {
             let mut ip = frame.ip;
             let end_ip = frame.end_ip;
-            println!("frame: {:?}", frame);
+            let free_start = frame.free_start;
+            let free_len = frame.free_len;
+            // println!("frame: {:?}", frame);
+            println!("frame: {:?}, {:?}, {:?}, {:?},  {:?}", free_start, free_len, self.frees, ip, end_ip);
 
             while ip < end_ip {
                 let instruction: &Opcode = self.instructions[ip];
                 println!("ip: {:?}, {:?}", ip, instruction);
-                ip = self.execute(&mut call_stack, instruction, ip);
+                ip = self.execute(&mut call_stack, instruction, ip, free_start, free_len);
                 match instruction {
                     Opcode::Closure(_, _) => {
                         break;
@@ -77,9 +87,23 @@ impl<'a> VM<'a> {
                     _ => {}
                 }
             }
+            if ip >= end_ip {
+                if call_stack.stack.is_empty() {
+                    break;
+                }
+                call_stack.pop_frame();
+                for stack in call_stack.stack.iter() {
+                    println!("stack: {:?}", unsafe { &*(*stack) });
+                }
+                println!("----------> pop frame: {:?} {:?}", call_stack.stack, call_stack.current_frame());
+            }
+            if count > 10 {
+                break;
+            }
+            count += 1;
         }
 
-        println!("-----------> count: {:?}", self.count);
+        // println!("-----------> count: {:?}", self.count);
         if self.stack.is_empty() {
             return NIL;
         }
@@ -92,13 +116,14 @@ impl<'a> VM<'a> {
     }
 
     fn pop(&mut self) -> Object {
+        // println!("pop: {:?}", self.stack);
         let obj = self.stack.pop().unwrap();
         self.sp -= 1;
         obj
     }
 
     #[inline]
-    fn execute(&mut self, call_stack: &mut CallStack, instruction: &Opcode, ip: usize) -> usize {
+    fn execute(&mut self, call_stack: &mut CallStack, instruction: &Opcode, ip: usize, free_start: usize, free_len: usize) -> usize {
         match instruction {
             Opcode::Add
             | Opcode::Divide
@@ -124,7 +149,7 @@ impl<'a> VM<'a> {
                     },
                     _ => Object::Nil,
                 };
-                self.push(result);
+                self.push(result.clone());
                 ip + 1
             }
             Opcode::ReturnValue => {
@@ -139,11 +164,13 @@ impl<'a> VM<'a> {
                                 ip: 0,
                                 end_ip: 0,
                                 base_pointer: 0,
-                                frees: vec![],
+                                free_len: 0,
+                                free_start: 0,
                             },
                         )
                     });
                 }
+                self.free_index -= free_len;
                 self.push(obj);
                 ip + 1
                 // println!("self.stack: {:?}", self.stack);
@@ -153,7 +180,7 @@ impl<'a> VM<'a> {
                 if obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    *pos
+                    self.main_len + *pos
                 }
             }
             Opcode::Exit(code) => {
@@ -162,12 +189,12 @@ impl<'a> VM<'a> {
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    *pos
+                    self.main_len + *pos
                 } else {
                     ip + 1
                 }
             }
-            Opcode::Jump(pos) => *pos,
+            Opcode::Jump(pos) => self.main_len + *pos,
             Opcode::LoadConstant(index) => {
                 self.push(self.constants[*index].clone());
                 ip + 1
@@ -251,26 +278,26 @@ impl<'a> VM<'a> {
                     frame.ip = self.main_len + start;
                     frame.end_ip = self.main_len + start + len;
                     frame.base_pointer = self.main_len + start;
-                    for f in &free {
-                        frame.frees.push(f.clone());
+                    frame.free_start = self.free_top.clone();
+                    for f in free {
+                        self.push_free(f);
                     }
+                    frame.free_len = *free_count;
                     // frame.frees = free;
                     let frame_ptr: *mut Frame = &mut frame;
                     call_stack.push_frame(frame_ptr);
-                    
+
                     // println!("count: {:?}", call_stack.current_frame());
                 }
                 ip + 1
             }
             Opcode::GetFree(index) => {
-                println!("get free: {:?}", index);
+                //println!("get free: {:?}", index);
                 // let obj = frees.borrow().get(*index).unwrap().clone();
                 // self.push(obj);
-                if let Some(frame) = call_stack.current_frame() {
-                    println!("get free: {:?}", frame);
-                    let obj = frame.get_free(*index);
-                    self.push(obj);
-                }
+                let obj = self.frees[free_start + *index].clone();
+                // println!("get free: {:?}, {:?}", index, obj);
+                self.push(obj);
                 ip + 1
             }
             Opcode::TailCall(_) => {
@@ -288,11 +315,13 @@ impl<'a> VM<'a> {
                                 ip: 0,
                                 end_ip: 0,
                                 base_pointer: 0,
-                                frees: vec![],
+                                free_len: 0,
+                                free_start: 0,
                             },
                         )
                     });
                 }
+                self.free_index -= free_len;
                 self.push(result);
                 ip + 1
             }
@@ -310,6 +339,16 @@ impl<'a> VM<'a> {
             }
             _ => unimplemented!("unimplemented opcode: {:?}", instruction),
         }
+    }
+
+    pub fn push_free(&mut self, obj: Object) {
+        if self.free_top > self.free_index {
+            self.frees[self.free_index] = obj;
+        } else {
+            self.frees.push(obj);
+            self.free_top += 1;
+        }
+        self.free_index += 1;
     }
 
     pub fn define_constants(&mut self, constants: Vec<Object>) {
