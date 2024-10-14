@@ -14,12 +14,14 @@ pub struct VM<'a> {
     frame_pool_top: usize,
     // count: usize,
     //current_frame: Option<*mut Frame>,
-    main_len: usize,
+    main_start: usize,
     // end_ip: usize,
     instructions: Vec<&'a Opcode>,
     frees: Vec<Object>,
     free_top: usize,
     free_index: usize,
+    registers: Vec<(usize, usize, usize)>,
+    free_start: usize,
 }
 
 const NIL: Object = Object::Nil;
@@ -33,7 +35,7 @@ impl<'a> VM<'a> {
         VM {
             constants: Vec::new(),
             stack: Vec::new(),
-            main_len: ins.0,
+            main_start: ins.0,
             instructions: ins.1,
             globals: vec![NIL; GLOBALS_SIZE],
             builtins: Builtins::new(),
@@ -47,6 +49,8 @@ impl<'a> VM<'a> {
             free_index: 0,
             frame_pool: Vec::with_capacity(1024),
             frame_pool_top: 0,
+            registers: vec![],
+            free_start: 0,
             // current_frame: None,
         }
     }
@@ -98,51 +102,63 @@ impl<'a> VM<'a> {
         }
         self.frame_pool_top = 1024;
         let frame = self.get_frame_from_pool();
-        frame.borrow_mut().end_ip = self.main_len;
+        frame.borrow_mut().end_ip = self.main_start;
         frame.borrow_mut().const_index = 9999999;
         frame.borrow_mut().is_main = true;
         self.push_frame(frame);
-
+        let mut ip = self.main_start;
+        let l = self.instructions.len();
         let mut count = 1;
-        loop {
-            let frame = self.current_frame();
-            // let f = frame.borrow_mut();
-            // let mut ip = f.ip;
-            // let end_ip = f.end_ip;
-            let mut ip = frame.borrow_mut().ip;
-            let end_ip = frame.borrow_mut().end_ip;
-            let is_main = frame.borrow().is_main;
-
-            while ip < end_ip {
-                let instruction: &Opcode = self.instructions[ip];
-                // println!("ip: {:?}, {:?} {:?}", ip, instruction, is_main);
-                ip = self.execute(instruction, ip, is_main);
-                match instruction {
-                    Opcode::Closure(_, _) => {
-                        break;
-                    }
-                    _ => {}
-                }
-            }
-            frame.borrow_mut().ip = ip;
-            //println!("--------------> ip: {:?} end_ip: {:?}, frames len: {:?} {:?}", ip, end_ip, self.frames, self.frames.len());
-            if ip >= end_ip {
-                if self.frame_index == 1 {
-                    break;
-                }
-                if self.frame_index == 0 {
-                    break;
-                }
-                self.pop_frame();
-                if self.frames.is_empty() {
-                    break;
-                }
-            }
-            if count > 10 {
-                // break;
+        println!("ip, {:?}, l: {:?}", ip, l);
+        while ip < l {
+            let instruction: &Opcode = self.instructions[ip];
+            println!("ip: {:?}, {:?}  {:?} free: {:?}", ip, instruction, self.registers, self.frees);
+            ip = self.execute(instruction, ip, ip >= self.main_start);
+            if count > 100 {
+                break;
             }
             count += 1;
         }
+
+        // loop {
+        //     let frame = self.current_frame();
+        //     // let f = frame.borrow_mut();
+        //     // let mut ip = f.ip;
+        //     // let end_ip = f.end_ip;
+        //     let mut ip = frame.borrow_mut().ip;
+        //     let end_ip = frame.borrow_mut().end_ip;
+        //     let is_main = frame.borrow().is_main;
+
+        //     while ip < end_ip {
+        //         let instruction: &Opcode = self.instructions[ip];
+        //         // println!("ip: {:?}, {:?} {:?}", ip, instruction, is_main);
+        //         ip = self.execute(instruction, ip, is_main);
+        //         match instruction {
+        //             Opcode::Closure(_, _) => {
+        //                 break;
+        //             }
+        //             _ => {}
+        //         }
+        //     }
+        //     frame.borrow_mut().ip = ip;
+        //     //println!("--------------> ip: {:?} end_ip: {:?}, frames len: {:?} {:?}", ip, end_ip, self.frames, self.frames.len());
+        //     if ip >= end_ip {
+        //         if self.frame_index == 1 {
+        //             break;
+        //         }
+        //         if self.frame_index == 0 {
+        //             break;
+        //         }
+        //         self.pop_frame();
+        //         if self.frames.is_empty() {
+        //             break;
+        //         }
+        //     }
+        //     if count > 10 {
+        //         // break;
+        //     }
+        //     count += 1;
+        // }
 
         // println!("-----------> count: {:?}", self.count);
         if self.stack.is_empty() {
@@ -203,7 +219,10 @@ impl<'a> VM<'a> {
                 let obj = self.pop();
                 // self.pop_frame();
                 self.push(obj);
-                ip + 1
+                let (ip, _, arg_len) = self.registers.pop().unwrap();
+                self.free_index -= arg_len;
+                self.frees.pop();
+                return ip + 1;
                 // println!("self.stack: {:?}", self.stack);
             }
             Opcode::Assert(pos) => {
@@ -211,10 +230,10 @@ impl<'a> VM<'a> {
                 if obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    if is_main {
+                    if !is_main {
                         *pos
                     } else {
-                        self.main_len + *pos
+                        self.main_start + *pos
                     }
                 }
             }
@@ -224,20 +243,25 @@ impl<'a> VM<'a> {
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    if is_main {
+                    if !is_main {
+                        println!("---------> jump: {:?}", *pos);
                         *pos
                     } else {
-                        self.main_len + *pos
+                        println!("jump: {:?}", *pos);
+                        self.main_start + *pos
                     }
                 } else {
                     ip + 1
                 }
             }
             Opcode::Jump(pos) => {
-                if is_main {
+                if !is_main {
+                    println!("---------> jump: {:?}", *pos);
                     *pos
                 } else {
-                    self.main_len + *pos
+                    println!("jump: {:?}", self.main_start + *pos);
+
+                    self.main_start + *pos
                 }
             }
             Opcode::LoadConstant(index) => {
@@ -313,31 +337,39 @@ impl<'a> VM<'a> {
                 let obj = self.globals[*index].clone();
                 if let Object::CompiledFunction {
                     start,
-                    len,
+                    len: _,
                     num_locals: _,
                     num_parameters: _,
                 } = obj
                 {
-                    let frame = self.get_frame_from_pool();
-                    frame.borrow_mut().const_index = *index;
-                    frame.borrow_mut().ip = self.main_len + start;
-                    frame.borrow_mut().end_ip = self.main_len + start + len;
-                    frame.borrow_mut().base_pointer = self.main_len + start;
-                    frame.borrow_mut().free_start = self.free_index;
-                    frame.borrow_mut().free_len = *free_count;
-                    frame.borrow_mut().fress = free.clone();
-                    self.push_frame(frame);
-
+                    // let frame = self.get_frame_from_pool();
+                    // frame.borrow_mut().const_index = *index;
+                    // frame.borrow_mut().ip = self.main_start + start;
+                    // frame.borrow_mut().end_ip = self.main_start + start + len;
+                    // frame.borrow_mut().base_pointer = self.main_start + start;
+                    // frame.borrow_mut().free_start = self.free_index;
+                    // frame.borrow_mut().free_len = *free_count;
+                    // frame.borrow_mut().fress = free.clone();
+                    for f in free.iter() {
+                        self.push_free(f.clone());
+                    }
+                    // self.push_frame(frame);
+                    self.registers.push((ip, self.free_index, *free_count));
+                    println!(
+                        "------------------------ before push ---------------{:?}: ip: {:?}------",
+                        start, ip
+                    );
+                    return start;
                     // println!("------------------------ after push -------------------------------------");
                     // for f in self.frames.iter() {
                     //     println!("frame: {:?}", f);
                     // }
                     // println!("----------------------------+---------------------------------");
                 }
-                ip + 1
+                return ip + 1;
             }
             Opcode::GetFree(index) => {
-                let obj = self.current_frame().borrow().fress[*index].clone();
+                let obj = self.frees[self.free_index + *index - 1].clone();
                 self.push(obj);
                 ip + 1
             }
@@ -348,6 +380,10 @@ impl<'a> VM<'a> {
                 let result = self.pop();
                 // self.pop_frame();
                 self.push(result);
+                self.frees.pop();
+                let (ip, arg_start, arg_len) = self.registers.pop().unwrap();
+                self.free_index -= arg_len;
+                self.free_start = arg_start;
                 ip + 1
             }
             Opcode::SetLocal(_index) => {
@@ -374,6 +410,11 @@ impl<'a> VM<'a> {
             self.free_top += 1;
         }
         self.free_index += 1;
+    }
+
+    pub fn pop_free(&mut self) {
+        let _ = self.frees[self.free_index - 1].clone();
+        self.free_index -= 1;
     }
 
     pub fn define_constants(&mut self, constants: Vec<Object>) {

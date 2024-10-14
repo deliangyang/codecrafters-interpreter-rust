@@ -39,9 +39,9 @@ impl Compiler {
     }
 
     pub fn get_instructions(&self) -> (usize, Vec<Opcode>) {
-        let l = self.instructions.len();
-        let mut instractions = self.instructions.clone();
-        instractions.extend(self.closure_ins.clone());
+        let l = self.closure_ins.len();
+        let mut instractions = self.closure_ins.clone();
+        instractions.extend( self.instructions.clone());
         (l, instractions)
     }
 
@@ -114,7 +114,7 @@ impl Compiler {
                 let jump_not_truthy = self.emit_return_position(Opcode::JumpIfFalse(0));
                 self.compile_statement(&Stmt::Block(block.clone()));
                 self.compile_statement(step);
-                self.emit(Opcode::Jump(start));
+                self.emit(Opcode::Jump(start-1));
                 let end = self.instructions.len();
                 self.instructions[jump_not_truthy] = Opcode::JumpIfFalse(end);
             }
@@ -310,7 +310,7 @@ impl Compiler {
                 }
 
                 for pos in endif.iter() {
-                    self.instructions[*pos] = Opcode::Jump(self.instructions.len());
+                    self.instructions[*pos] = Opcode::Jump(self.instructions.len()-1);
                 }
             }
             _ => unimplemented!("Expression not implemented: {:?}", expr),
