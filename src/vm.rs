@@ -51,11 +51,8 @@ impl<'a> VM<'a> {
         }
     }
 
-    fn current_frame(&mut self) -> Option<Rc<RefCell<Frame>>> {
-        if self.frame_index == 0 {
-            return None;
-        }
-        self.frames[self.frame_index - 1].clone().into()
+    fn current_frame(&mut self) -> Rc<RefCell<Frame>> {
+        self.frames[self.frame_index - 1].clone()
     }
 
     fn push_frame(&mut self, frame: Rc<RefCell<Frame>>) {
@@ -107,7 +104,8 @@ impl<'a> VM<'a> {
         self.push_frame(frame);
 
         let mut count = 1;
-        while let Some(frame) = self.current_frame() {
+        loop {
+            let frame = self.current_frame();
             // let f = frame.borrow_mut();
             // let mut ip = f.ip;
             // let end_ip = f.end_ip;
@@ -129,16 +127,16 @@ impl<'a> VM<'a> {
             frame.borrow_mut().ip = ip;
             //println!("--------------> ip: {:?} end_ip: {:?}, frames len: {:?} {:?}", ip, end_ip, self.frames, self.frames.len());
             if ip >= end_ip {
-                if self.frames.is_empty() {
+                if self.frame_index == 1 {
                     break;
                 }
                 if self.frame_index == 0 {
                     break;
                 }
                 self.pop_frame();
-                // if self.frames.is_empty() {
-                //     break;
-                // }
+                if self.frames.is_empty() {
+                    break;
+                }
             }
             if count > 10 {
                 // break;
@@ -339,7 +337,7 @@ impl<'a> VM<'a> {
                 ip + 1
             }
             Opcode::GetFree(index) => {
-                let obj = self.current_frame().unwrap().borrow().fress[*index].clone();
+                let obj = self.current_frame().borrow().fress[*index].clone();
                 self.push(obj);
                 ip + 1
             }
