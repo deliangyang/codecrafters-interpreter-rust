@@ -100,6 +100,7 @@ impl<'a> VM<'a> {
         let frame = self.get_frame_from_pool();
         frame.borrow_mut().end_ip = self.main_len;
         frame.borrow_mut().const_index = 9999999;
+        frame.borrow_mut().is_main = true;
         self.push_frame(frame);
        
         let mut count = 1;
@@ -109,11 +110,12 @@ impl<'a> VM<'a> {
             // let end_ip = f.end_ip;
             let mut ip = frame.borrow_mut().ip;
             let end_ip = frame.borrow_mut().end_ip;
+            let is_main = frame.borrow().is_main;
 
             while ip < end_ip {
                 let instruction: &Opcode = self.instructions[ip];
-                //println!("ip: {:?}, {:?}", ip, instruction);
-                ip = self.execute(instruction, ip);
+                // println!("ip: {:?}, {:?} {:?}", ip, instruction, is_main);
+                ip = self.execute(instruction, ip, is_main);
                 match instruction {
                     Opcode::Closure(_, _) => {
                         break;
@@ -171,6 +173,7 @@ impl<'a> VM<'a> {
         &mut self,
         instruction: &Opcode,
         ip: usize,
+        is_main: bool,
     ) -> usize {
         match instruction {
             Opcode::Add
@@ -212,7 +215,11 @@ impl<'a> VM<'a> {
                 if obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    self.main_len + *pos
+                    if is_main {
+                        *pos
+                    } else {
+                        self.main_len + *pos
+                    }
                 }
             }
             Opcode::Exit(code) => {
@@ -221,12 +228,22 @@ impl<'a> VM<'a> {
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if condition == Object::Boolean(false) {
-                    self.main_len + *pos
+                    if is_main {
+                        *pos
+                    } else {
+                        self.main_len + *pos
+                    }
                 } else {
                     ip + 1
                 }
             }
-            Opcode::Jump(pos) => self.main_len + *pos,
+            Opcode::Jump(pos) => {
+                if is_main {
+                    *pos
+                } else {
+                    self.main_len + *pos
+                }
+            },
             Opcode::LoadConstant(index) => {
                 self.push(self.constants[*index].clone());
                 ip + 1
