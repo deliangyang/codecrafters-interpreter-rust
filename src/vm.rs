@@ -52,7 +52,10 @@ impl<'a> VM<'a> {
     }
 
     fn current_frame(&mut self) -> Option<Rc<RefCell<Frame>>> {
-        self.frames.get(self.frame_index - 1).map(|f| f.clone())
+        if self.frame_index == 0 {
+            return None;
+        }
+        self.frames[self.frame_index - 1].clone().into()
     }
 
     fn push_frame(&mut self, frame: Rc<RefCell<Frame>>) {
@@ -65,8 +68,8 @@ impl<'a> VM<'a> {
         // let _ = self.frees.split_off(self.free_index - free_len);
         let frame = self.frames.pop().unwrap();
         //println!("??????????????? after pop ???????????????????\npop frame: {:?} {:?} {:?}", frame, self.frame_pool_top, self.frame_pool.len());
-        self.frame_pool_top +=1;
-        let _ = mem::replace(&mut self.frame_pool[self.frame_pool_top-1], frame);
+        self.frame_pool_top += 1;
+        let _ = mem::replace(&mut self.frame_pool[self.frame_pool_top - 1], frame);
         self.frame_index -= 1;
 
         // if self.frame_index > 0 {
@@ -102,7 +105,7 @@ impl<'a> VM<'a> {
         frame.borrow_mut().const_index = 9999999;
         frame.borrow_mut().is_main = true;
         self.push_frame(frame);
-       
+
         let mut count = 1;
         while let Some(frame) = self.current_frame() {
             // let f = frame.borrow_mut();
@@ -169,12 +172,7 @@ impl<'a> VM<'a> {
     }
 
     #[inline]
-    fn execute(
-        &mut self,
-        instruction: &Opcode,
-        ip: usize,
-        is_main: bool,
-    ) -> usize {
+    fn execute(&mut self, instruction: &Opcode, ip: usize, is_main: bool) -> usize {
         match instruction {
             Opcode::Add
             | Opcode::Divide
@@ -243,7 +241,7 @@ impl<'a> VM<'a> {
                 } else {
                     self.main_len + *pos
                 }
-            },
+            }
             Opcode::LoadConstant(index) => {
                 self.push(self.constants[*index].clone());
                 ip + 1
@@ -331,13 +329,12 @@ impl<'a> VM<'a> {
                     frame.borrow_mut().free_len = *free_count;
                     frame.borrow_mut().fress = free.clone();
                     self.push_frame(frame);
-                   
+
                     // println!("------------------------ after push -------------------------------------");
                     // for f in self.frames.iter() {
                     //     println!("frame: {:?}", f);
                     // }
                     // println!("----------------------------+---------------------------------");
-
                 }
                 ip + 1
             }
@@ -384,7 +381,6 @@ impl<'a> VM<'a> {
     pub fn define_constants(&mut self, constants: Vec<Object>) {
         self.constants = constants;
     }
-
 }
 
 #[cfg(test)]
