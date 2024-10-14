@@ -14,7 +14,7 @@ pub struct VM<'a> {
     // count: usize,
     //current_frame: Option<*mut Frame>,
     main_len: usize,
-    end_ip: usize,
+   // end_ip: usize,
     instructions: Vec<&'a Opcode>,
     frees: Vec<Object>,
     free_top: usize,
@@ -36,7 +36,7 @@ impl<'a> VM<'a> {
             instructions: ins.1,
             globals: vec![NIL; GLOBALS_SIZE],
             builtins: Builtins::new(),
-            end_ip: ins.0,
+            //end_ip: ins.0,
             sp: 0,
             frames: Vec::with_capacity(1024),
             frame_index: 0,
@@ -113,24 +113,24 @@ impl<'a> VM<'a> {
         frame.borrow_mut().const_index = 9999999;
         self.push_frame(frame);
         // println!("frame_pool: {:?}", self.frame_pool);
-        println!("frame_pool: {:?}", self.frame_pool);
-        println!("ins: {:?}", self.instructions);
-        println!("run: {:?}", self.end_ip);
+        // println!("frame_pool: {:?}", self.frame_pool);
+        // println!("ins: {:?}", self.instructions);
+        // println!("run: {:?}", self.end_ip);
         let mut count = 1;
         while let Some(frame) = self.current_frame() {
             let mut ip = frame.borrow_mut().ip;
             let end_ip = frame.borrow_mut().end_ip;
             let free_start = frame.borrow_mut().free_start;
             let free_len = frame.borrow_mut().free_len;
-            // println!("frame: {:?}", frame);
-            println!(
-                "frame: {:?} {:?}, {:?}, {:?}, {:?},  {:?}",
-                self.frame_index, free_start, free_len, self.frees, ip, end_ip
-            );
+            println!("frame: {:?}", frame);
+            // println!(
+            //     "frame: {:?} {:?}, {:?}, {:?}, {:?},  {:?}",
+            //     self.frame_index, free_start, free_len, self.frees, ip, end_ip
+            // );
 
             while ip < end_ip {
                 let instruction: &Opcode = self.instructions[ip];
-                println!("ip: {:?}, {:?}", ip, instruction);
+                //println!("ip: {:?}, {:?}", ip, instruction);
                 ip = self.execute(instruction, ip, free_start, free_len);
                 match instruction {
                     Opcode::Closure(_, _) => {
@@ -147,7 +147,7 @@ impl<'a> VM<'a> {
                 }
                 self.pop_frame();
                 if self.frame_index == 0 {
-                   // break;
+                   break;
                 }
                 self.free_index -= free_len;
                 // for stack in call_stack.stack.iter() {

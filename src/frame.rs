@@ -1,4 +1,3 @@
-use std::ops::DerefMut;
 
 #[derive(Debug, Clone)]
 pub struct Frame {
@@ -75,11 +74,11 @@ impl Frame {
     }
 }
 
-impl Drop for Frame {
-    fn drop(&mut self) {
-        println!("----------------------------> Dropping frame: {:?}", self);
-    }
-}
+// impl Drop for Frame {
+//     fn drop(&mut self) {
+//         println!("----------------------------> Dropping frame: {:?}", self);
+//     }
+// }
 
 pub struct FramePool {
     pub pool: Vec<Frame>,
@@ -104,8 +103,8 @@ impl FramePool {
 
     pub fn return_frame(&mut self, frame: Frame) {
         self.pool.push(frame);
-        for f in self.pool.iter() {
-            println!("++++++++++++++++++++++++++++++frame: {:?}", f);
-        }
+        // for f in self.pool.iter() {
+        //     println!("++++++++++++++++++++++++++++++frame: {:?}", f);
+        // }
     }
 }
