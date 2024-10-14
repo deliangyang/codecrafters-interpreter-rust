@@ -62,44 +62,39 @@ impl<'a> CallStack<'a> {
 
 fn recursive_function(call_stack: &mut CallStack, depth: i32) -> i32 {
     if depth == 0 {
+        return 0;
+    } else if depth == 1 {
         return 1;
     }
 
     // 获取或复用栈帧
     let mut frame = call_stack.pool.get_frame();
     frame.return_address = 0; // 设置返回地址（根据需要设置）
-    frame.local_vars =  vec![X{}];
+    frame.local_vars =  vec![X{
+    }];
     // 保存当前栈帧指针
     let frame_ptr: *mut Frame = &mut frame;
     call_stack.push_frame(frame_ptr);
 
     // 递归调用
-    let result = recursive_function(call_stack, depth - 1);
+    let result = recursive_function(call_stack, depth - 1) + recursive_function(call_stack, depth - 2);
 
     // 弹出栈帧并复用
     if let Some(f) = call_stack.pop_frame() {
-        println!("Pop frame: {:?}", unsafe { &*f });
-        println!("Current frame: {:?}", unsafe {
-            for x in &(*f).local_vars {
-                println!("{:?}", x);
-            }
-        });
-        println!("Current frame: {:?}", unsafe {
-            (*f).local_vars.iter().map(|x| x).collect::<Vec<&X>>()
-        });
         call_stack.pool.return_frame(unsafe { mem::replace(&mut *f, Frame {
-            local_vars: vec![X{}], // 初始化局部变量
+            local_vars: vec![X{
+            }], // 初始化局部变量
             return_address: 0,
         })});
     }
 
-    result + 1
+    result
 }
 
 fn main() {
     let mut frame_pool = FramePool::new();
     let mut call_stack = CallStack::new(&mut frame_pool);
 
-    let result = recursive_function(&mut call_stack, 5);
+    let result = recursive_function(&mut call_stack, 35);
     println!("Result: {}", result);
 }
