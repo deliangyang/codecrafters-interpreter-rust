@@ -6,6 +6,7 @@ pub struct VM<'a> {
     constants: Vec<Object>,
     stack: Vec<Object>,
     globals: Vec<Object>,
+    closures: Vec<(usize, usize)>,
     builtins: Builtins,
     sp: usize, // stack pointer
     main_start: usize,
@@ -39,6 +40,7 @@ impl<'a> VM<'a> {
             free_index: 0,
             registers: Vec::with_capacity(1024),
             free_start: 0,
+            closures: vec![(0, 0); GLOBALS_SIZE],
         }
     }
 
@@ -189,7 +191,16 @@ impl<'a> VM<'a> {
             }
             Opcode::SetGlobal(index) => {
                 let obj = self.pop();
-                self.globals[*index] = obj;
+                // self.globals[*index] = obj;
+                if let Object::CompiledFunction {
+                    start,
+                    len: _,
+                    num_locals: _,
+                    num_parameters,
+                } = obj
+                {
+                    self.closures[*index] = (start, num_parameters);
+                }
                 ip + 1
             }
             Opcode::GetBuiltin(index) => {
@@ -217,39 +228,12 @@ impl<'a> VM<'a> {
             Opcode::Closure(index, free_count) => {
                 let free = self.stack.split_off(self.sp - free_count);
                 self.sp -= free_count;
-                let obj = self.globals[*index].clone();
-                if let Object::CompiledFunction {
-                    start,
-                    len: _,
-                    num_locals: _,
-                    num_parameters: _,
-                } = obj
-                {
-                    // let frame = self.get_frame_from_pool();
-                    // frame.borrow_mut().const_index = *index;
-                    // frame.borrow_mut().ip = self.main_start + start;
-                    // frame.borrow_mut().end_ip = self.main_start + start + len;
-                    // frame.borrow_mut().base_pointer = self.main_start + start;
-                    // frame.borrow_mut().free_start = self.free_index;
-                    // frame.borrow_mut().free_len = *free_count;
-                    // frame.borrow_mut().fress = free.clone();
-                    for f in free.iter() {
-                        self.push_free(f.clone());
-                    }
-                    // self.push_frame(frame);
-                    self.registers.push((ip, self.free_index, *free_count));
-                    // println!(
-                    //     "------------------------ before push ---------------{:?}: ip: {:?}------",
-                    //     start, ip
-                    // );
-                    return start;
-                    // println!("------------------------ after push -------------------------------------");
-                    // for f in self.frames.iter() {
-                    //     println!("frame: {:?}", f);
-                    // }
-                    // println!("----------------------------+---------------------------------");
+                let (start, _) = self.closures[*index];
+                for f in free.iter() {
+                    self.push_free(f.clone());
                 }
-                return ip + 1;
+                self.registers.push((ip, self.free_index, *free_count));
+                return start;
             }
             Opcode::GetFree(index) => {
                 let obj = self.frees[self.free_index + *index - 1].clone();
