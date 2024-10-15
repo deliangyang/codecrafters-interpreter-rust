@@ -114,7 +114,7 @@ impl Compiler {
                 let jump_not_truthy = self.emit_return_position(Opcode::JumpIfFalse(0));
                 self.compile_statement(&Stmt::Block(block.clone()));
                 self.compile_statement(step);
-                self.emit(Opcode::Jump(start-1));
+                self.emit(Opcode::Jump(start));
                 let end = self.instructions.len();
                 self.instructions[jump_not_truthy] = Opcode::JumpIfFalse(end);
             }

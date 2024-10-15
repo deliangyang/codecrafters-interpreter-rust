@@ -144,8 +144,7 @@ impl<'a> VM<'a> {
                     // println!("---------> jump: {:?}", *pos);
                     *pos
                 } else {
-                    println!("jump: {:?}", self.main_start + *pos);
-
+                    // println!("jump: {:?}", self.main_start + *pos);
                     self.main_start + *pos
                 }
             }
@@ -191,15 +190,18 @@ impl<'a> VM<'a> {
             }
             Opcode::SetGlobal(index) => {
                 let obj = self.pop();
-                // self.globals[*index] = obj;
-                if let Object::CompiledFunction {
-                    start,
-                    len: _,
-                    num_locals: _,
-                    num_parameters,
-                } = obj
-                {
-                    self.closures[*index] = (start, num_parameters);
+                match obj {
+                    Object::CompiledFunction {
+                        start,
+                        len: _,
+                        num_locals: _,
+                        num_parameters,
+                    } => {
+                        self.closures[*index] = (start, num_parameters);
+                    }
+                    _ => {
+                        self.globals[*index] = obj;
+                    }
                 }
                 ip + 1
             }
