@@ -13,6 +13,7 @@ pub struct VM<'a> {
     instructions: Vec<&'a Opcode>,
     registers: Vec<(usize, usize, usize)>, // ip, free_start, free_len
     free_start: usize,
+    stack_top: usize,
 }
 
 const NIL: Object = Object::Nil;
@@ -25,7 +26,7 @@ impl<'a> VM<'a> {
     pub fn new(ins: (usize, Vec<&'a Opcode>)) -> VM {
         VM {
             constants: Vec::new(),
-            stack: Vec::new(),
+            stack: vec![NIL; 1024],
             main_start: ins.0,
             instructions: ins.1,
             globals: vec![NIL; GLOBALS_SIZE],
@@ -34,6 +35,7 @@ impl<'a> VM<'a> {
             registers: Vec::with_capacity(1024),
             free_start: 0,
             closures: vec![(0, 0); GLOBALS_SIZE],
+            stack_top: 1024,
         }
     }
 
@@ -54,9 +56,12 @@ impl<'a> VM<'a> {
     }
 
     fn push(&mut self, obj: Object) {
-        if self.sp >= self.stack.len() {
+        if self.sp >= self.stack_top {
             self.stack.push(obj);
+           // println!("stack: {:?}", self.stack);
+            self.stack_top += 1;
         } else {
+            //println!("push: {:?}, sp: {:?}", self.stack.len(), self.sp);
             self.stack[self.sp] = obj;
         }
         self.sp += 1;
@@ -242,7 +247,10 @@ impl<'a> VM<'a> {
             Opcode::Return => {
                 //let result = self.pop();
                 // self.pop_frame();
-                self.stack.drain(self.free_start..self.sp - 1);
+                let last = self.last();
+                self.stack[self.free_start] = last.clone();
+                //self.stack.drain(self.free_start..self.sp - 1);
+                //println!("-------------------> return: {:?}", self.stack.len());
                 self.sp = self.free_start + 1;
                 //self.push(result);
                 // self.frees.pop();
