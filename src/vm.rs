@@ -47,21 +47,35 @@ impl<'a> VM<'a> {
             ip = self.execute(instruction, ip, ip >= self.main_start);
         }
 
-        if self.stack.is_empty() {
+        if self.sp <= 0 {
             return NIL;
         }
-        self.pop()
+        self.pop().clone()
     }
 
     fn push(&mut self, obj: Object) {
-        self.stack.push(obj);
+        if self.sp >= self.stack.len() {
+            self.stack.push(obj);
+        } else {
+            self.stack[self.sp] = obj;
+        }
         self.sp += 1;
     }
 
-    fn pop(&mut self) -> Object {
-        let obj = self.stack.pop().unwrap();
+    fn pop(&mut self) -> &Object {
         self.sp -= 1;
-        obj
+        &self.stack[self.sp]
+        // if self.sp == self.stack.len() {
+        //     self.stack.pop().unwrap()
+        // } else {
+        //     self.stack[self.sp].clone()
+        // }
+        // let obj = self.stack.pop().unwrap();
+        // obj
+    }
+
+    fn last(&mut self) -> &Object {
+        &self.stack[self.sp - 1]
     }
 
     #[inline]
@@ -75,18 +89,19 @@ impl<'a> VM<'a> {
             | Opcode::LessThan
             | Opcode::EqualEqual
             | Opcode::GreaterThan => {
-                let right = self.pop();
+                let right = &self.stack[self.sp - 1];
+                self.sp -= 1;
                 let left = &self.stack[self.sp - 1];
                 self.stack[self.sp-1] = match (left, right) {
                     (Object::Number(l), Object::Number(r)) => match instruction {
-                        Opcode::Add => Object::Number(l + r),
-                        Opcode::Divide => Object::Number(l / r),
-                        Opcode::Minus => Object::Number(l - r),
-                        Opcode::Multiply => Object::Number(l * r),
-                        Opcode::Mod => Object::Number(l % r),
-                        Opcode::GreaterThan => Object::Boolean(*l > r),
-                        Opcode::LessThan => Object::Boolean(*l < r),
-                        Opcode::EqualEqual => Object::Boolean(*l == r),
+                        Opcode::Add => Object::Number(*l + *r),
+                        Opcode::Divide => Object::Number(*l / *r),
+                        Opcode::Minus => Object::Number(*l - *r),
+                        Opcode::Multiply => Object::Number(*l * *r),
+                        Opcode::Mod => Object::Number(*l % *r),
+                        Opcode::GreaterThan => Object::Boolean(*l > *r),
+                        Opcode::LessThan => Object::Boolean(*l < *r),
+                        Opcode::EqualEqual => Object::Boolean(*l == *r),
                         _ => Object::Nil,
                     },
                     _ => Object::Nil,
@@ -96,7 +111,7 @@ impl<'a> VM<'a> {
             }
             Opcode::Assert(pos) => {
                 let obj = self.pop();
-                if obj == Object::Boolean(false) {
+                if *obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
                     if !is_main {
@@ -111,12 +126,10 @@ impl<'a> VM<'a> {
             }
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
-                if condition == Object::Boolean(false) {
+                if *condition == Object::Boolean(false) {
                     if !is_main {
-                        // println!("---------> jump: {:?}", *pos);
                         *pos
                     } else {
-                        // println!("jump: {:?}", *pos);
                         self.main_start + *pos
                     }
                 } else {
@@ -125,10 +138,8 @@ impl<'a> VM<'a> {
             }
             Opcode::Jump(pos) => {
                 if !is_main {
-                    // println!("---------> jump: {:?}", *pos);
                     *pos
                 } else {
-                    // println!("jump: {:?}", self.main_start + *pos);
                     self.main_start + *pos
                 }
             }
@@ -141,25 +152,30 @@ impl<'a> VM<'a> {
                 ip + 1
             }
             Opcode::Abs => {
-                let obj = self.pop();
-                self.push(Object::Number(match obj {
+                let obj = self.last();
+                self.stack[self.sp - 1] = Object::Number(match obj {
                     Object::Number(n) => n.abs(),
                     _ => 0.0,
-                }));
+                });
+                // self.push(Object::Number(match obj {
+                //     Object::Number(n) => n.abs(),
+                //     _ => 0.0,
+                // }));
                 ip + 1
             }
             Opcode::Nagetive => {
-                let obj = self.pop();
-                self.push(Object::Number(match obj {
+                let obj = self.last();
+                self.stack[self.sp - 1] = Object::Number(match obj {
                     Object::Number(n) => -n,
                     _ => 0.0,
-                }));
+                });
+                // self.push();
                 ip + 1
             }
             Opcode::Print(n) => {
                 for _ in 0..*n {
                     let obj = self.pop();
-                    print!("{} ", obj);
+                    print!("{} ", *obj);
                 }
                 ip + 1
             }
@@ -181,10 +197,10 @@ impl<'a> VM<'a> {
                         num_locals: _,
                         num_parameters,
                     } => {
-                        self.closures[*index] = (start, num_parameters);
+                        self.closures[*index] = (*start, *num_parameters);
                     }
                     _ => {
-                        self.globals[*index] = obj;
+                        self.globals[*index] = obj.clone();
                     }
                 }
                 ip + 1
@@ -198,7 +214,7 @@ impl<'a> VM<'a> {
                 ip + 1
             }
             Opcode::Call(n) => {
-                let func = self.pop();
+                let func = self.pop().clone();
                 // println!("----------> call: {:?}", func);
                 match func {
                     Object::Builtin(_, _, f) => {
