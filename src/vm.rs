@@ -76,22 +76,22 @@ impl<'a> VM<'a> {
             | Opcode::EqualEqual
             | Opcode::GreaterThan => {
                 let right = self.pop();
-                let left = self.pop();
-                let result = match (left, right) {
+                let left = &self.stack[self.sp - 1];
+                self.stack[self.sp-1] = match (left, right) {
                     (Object::Number(l), Object::Number(r)) => match instruction {
                         Opcode::Add => Object::Number(l + r),
                         Opcode::Divide => Object::Number(l / r),
                         Opcode::Minus => Object::Number(l - r),
                         Opcode::Multiply => Object::Number(l * r),
                         Opcode::Mod => Object::Number(l % r),
-                        Opcode::GreaterThan => Object::Boolean(l > r),
-                        Opcode::LessThan => Object::Boolean(l < r),
-                        Opcode::EqualEqual => Object::Boolean(l == r),
+                        Opcode::GreaterThan => Object::Boolean(*l > r),
+                        Opcode::LessThan => Object::Boolean(*l < r),
+                        Opcode::EqualEqual => Object::Boolean(*l == r),
                         _ => Object::Nil,
                     },
                     _ => Object::Nil,
                 };
-                self.push(result.clone());
+                // self.push(result.clone());
                 ip + 1
             }
             Opcode::Assert(pos) => {
