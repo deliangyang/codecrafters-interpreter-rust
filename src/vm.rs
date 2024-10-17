@@ -175,7 +175,7 @@ impl<'a> VM<'a> {
             Opcode::Print(n) => {
                 for _ in 0..*n {
                     let obj = self.pop();
-                    print!("{} ", *obj);
+                    print!("{} ", obj);
                 }
                 ip + 1
             }
@@ -218,7 +218,7 @@ impl<'a> VM<'a> {
                 // println!("----------> call: {:?}", func);
                 match func {
                     Object::Builtin(_, _, f) => {
-                        let args = self.stack.split_off(self.sp - n);
+                        let args = self.stack[self.sp-n..self.sp].to_vec();
                         self.sp -= n;
                         let _ = f(args);
                         ip + 1
