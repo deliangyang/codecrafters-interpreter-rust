@@ -224,16 +224,15 @@ impl<'a> VM<'a> {
                 ip + 1
             }
             Opcode::Return => {
-                let result = self.pop();
+                //let result = self.pop();
                 // self.pop_frame();
-                let _ = self.stack.split_off(self.free_start);
-                self.sp = self.free_start;
-                self.push(result);
+                self.stack.drain(self.free_start..self.sp - 1);
+                self.sp = self.free_start + 1;
+                //self.push(result);
                 // self.frees.pop();
                 //println!("return ip: {:?}", ip)    ;
                 let (ip, arg_start, _) = self.registers.pop().unwrap();
                 //println!("return: ip: {:?}, stack: {:?}", ip + 1, self.stack);
-               
                 self.free_start = arg_start;
                 ip + 1
             }
