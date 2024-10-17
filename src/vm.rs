@@ -11,10 +11,7 @@ pub struct VM<'a> {
     sp: usize, // stack pointer
     main_start: usize,
     instructions: Vec<&'a Opcode>,
-    frees: Vec<Object>,
-    free_top: usize,
-    free_index: usize,
-    registers: Vec<(usize, usize, usize)>,
+    registers: Vec<(usize, usize, usize)>, // ip, free_start, free_len
     free_start: usize,
 }
 
@@ -33,11 +30,7 @@ impl<'a> VM<'a> {
             instructions: ins.1,
             globals: vec![NIL; GLOBALS_SIZE],
             builtins: Builtins::new(),
-            //end_ip: ins.0,
             sp: 0,
-            frees: vec![],
-            free_top: 0,
-            free_index: 0,
             registers: Vec::with_capacity(1024),
             free_start: 0,
             closures: vec![(0, 0); GLOBALS_SIZE],
@@ -50,7 +43,7 @@ impl<'a> VM<'a> {
         println!("ip, {:?}, l: {:?}", ip, l);
         while ip < l {
             let instruction: &Opcode = self.instructions[ip];
-            // println!("ip: {:?}, {:?}  {:?} free: {:?}", ip, instruction, self.registers, self.frees);
+            //println!("ip: {:?}, {:?}  {:?} {:?}, free_start: {:?}", ip, instruction, self.registers, self.stack, self.free_start);
             ip = self.execute(instruction, ip, ip >= self.main_start);
         }
 
@@ -100,15 +93,6 @@ impl<'a> VM<'a> {
                 };
                 self.push(result.clone());
                 ip + 1
-            }
-            Opcode::ReturnValue => {
-                let obj = self.pop();
-                // self.pop_frame();
-                self.push(obj);
-                let (ip, _, arg_len) = self.registers.pop().unwrap();
-                self.free_index -= arg_len;
-                return ip + 1;
-                // println!("self.stack: {:?}", self.stack);
             }
             Opcode::Assert(pos) => {
                 let obj = self.pop();
@@ -228,30 +212,28 @@ impl<'a> VM<'a> {
                 }
             }
             Opcode::Closure(index, free_count) => {
-                let free = self.stack.split_off(self.sp - free_count);
-                self.sp -= free_count;
                 let (start, _) = self.closures[*index];
-                for f in free.iter() {
-                    self.push_free(f.clone());
-                }
-                self.registers.push((ip, self.free_index, *free_count));
+                self.registers.push((ip, self.free_start, *free_count));
+                self.free_start = self.sp - free_count;
+                //println!("free_start: {:?}", self.free_start);
                 return start;
             }
             Opcode::GetFree(index) => {
-                let obj = self.frees[self.free_index + *index - 1].clone();
+                let obj = self.stack[self.free_start + *index].clone();
                 self.push(obj);
                 ip + 1
-            }
-            Opcode::TailCall(_) => {
-                unimplemented!("unimplemented opcode: {:?}", instruction);
             }
             Opcode::Return => {
                 let result = self.pop();
                 // self.pop_frame();
+                let _ = self.stack.split_off(self.free_start);
+                self.sp = self.free_start;
                 self.push(result);
                 // self.frees.pop();
-                let (ip, arg_start, arg_len) = self.registers.pop().unwrap();
-                self.free_index -= arg_len;
+                //println!("return ip: {:?}", ip)    ;
+                let (ip, arg_start, _) = self.registers.pop().unwrap();
+                //println!("return: ip: {:?}, stack: {:?}", ip + 1, self.stack);
+               
                 self.free_start = arg_start;
                 ip + 1
             }
@@ -269,21 +251,6 @@ impl<'a> VM<'a> {
             }
             _ => unimplemented!("unimplemented opcode: {:?}", instruction),
         }
-    }
-
-    pub fn push_free(&mut self, obj: Object) {
-        if self.free_top > self.free_index {
-            self.frees[self.free_index] = obj;
-        } else {
-            self.frees.push(obj);
-            self.free_top += 1;
-        }
-        self.free_index += 1;
-    }
-
-    pub fn pop_free(&mut self) {
-        let _ = self.frees[self.free_index - 1].clone();
-        self.free_index -= 1;
     }
 
     pub fn define_constants(&mut self, constants: Vec<Object>) {
