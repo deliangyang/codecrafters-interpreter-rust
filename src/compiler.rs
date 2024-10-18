@@ -16,6 +16,7 @@ pub struct Compiler {
     pre_instructions: Vec<Opcode>,
     pub builtins: Builtins,
     pub symbols: Rc<RefCell<SymbolTable>>,
+    pub closure_ins: Vec<Opcode>,
 }
 
 impl Compiler {
@@ -27,6 +28,7 @@ impl Compiler {
             builtins: Builtins::new(),
             pre_instructions: vec![],
             symbols: Rc::new(RefCell::new(SymbolTable::new())),
+            closure_ins: vec![],
         }
     }
 
@@ -34,6 +36,13 @@ impl Compiler {
         for statement in self.program.clone() {
             self.compile_statement(&statement);
         }
+    }
+
+    pub fn get_instructions(&self) -> (usize, Vec<Opcode>) {
+        let l = self.closure_ins.len();
+        let mut instractions = self.closure_ins.clone();
+        instractions.extend(self.instructions.clone());
+        (l, instractions)
     }
 
     fn compile_statement(&mut self, stmt: &Stmt) {
@@ -72,16 +81,26 @@ impl Compiler {
                     self.compile_statement(stmt);
                 }
 
-                let instraction = self.leave_scope();
+                let mut instraction = self.leave_scope();
 
                 let symbols = self.symbols.borrow().clone();
                 let num_locals = symbols.num_definitions;
                 let num_parameters = args.len();
 
+                if instraction.last().unwrap() != &Opcode::Return {
+                    instraction.push(Opcode::LoadConstant(1));
+                    instraction.push(Opcode::Return);
+                }
+
+                let start = self.closure_ins.len();
+
+                self.closure_ins.extend(instraction.clone());
+
                 let compiled_object = Object::CompiledFunction {
-                    instructions: instraction,
                     num_locals,
                     num_parameters,
+                    start,
+                    len: instraction.len(),
                 };
                 let index = self.constants.len();
                 self.constants.push(compiled_object);
@@ -139,7 +158,7 @@ impl Compiler {
                 //     Opcode::Call(count) => self.emit(Opcode::TailCall(count)),
                 //     _ => self.emit(Opcode::Return)
                 // }
-                self.emit(Opcode::Return);
+                self.emit(Opcode::ReturnValue);
                 // if self.is_tail_call(stmt) {
                 //     self.emit(Opcode::TailCall(0));
                 // } else {
@@ -296,7 +315,7 @@ impl Compiler {
                 }
 
                 for pos in endif.iter() {
-                    self.instructions[*pos] = Opcode::Jump(self.instructions.len());
+                    self.instructions[*pos] = Opcode::Jump(self.instructions.len() - 1);
                 }
             }
             _ => unimplemented!("Expression not implemented: {:?}", expr),

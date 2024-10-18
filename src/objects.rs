@@ -3,7 +3,6 @@ use std::hash::{Hash, Hasher};
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use crate::ast;
-use crate::opcode::Opcode;
 
 pub type BuiltinFunc = fn(Vec<Object>) -> Object;
 
@@ -26,7 +25,8 @@ pub enum Object {
         properties: Rc<RefCell<HashMap<String, Object>>>,
     },
     CompiledFunction {
-        instructions: Vec<Opcode>,
+        start: usize,
+        len: usize,
         num_locals: usize,
         num_parameters: usize,
     },
@@ -107,14 +107,15 @@ impl Display for Object {
                 write!(f, "}}")
             }
             Object::CompiledFunction {
-                instructions,
                 num_locals,
                 num_parameters,
+                start,
+                len
             } => {
                 write!(
                     f,
-                    "compiled function with {} locals and {} parameters: {:?}",
-                    num_locals, num_parameters, instructions
+                    "compiled function with {} {} locals and {} parameters: {:?}",
+                    start, len, num_locals, num_parameters
                 )
             }
             Object::Closure { func } => {
