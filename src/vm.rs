@@ -45,7 +45,7 @@ impl<'a> VM<'a> {
         println!("ip, {:?}, l: {:?}", ip, l);
         while ip < l {
             let instruction: &Opcode = self.instructions[ip];
-            //println!("ip: {:?}, {:?}  {:?} {:?}, free_start: {:?}", ip, instruction, self.registers, self.stack, self.free_start);
+            // println!("ip: {:?}, {:?}  {:?}, free_start: {:?}", ip, instruction, self.registers, self.free_start);
             ip = self.execute(instruction, ip, ip >= self.main_start);
         }
 
@@ -244,7 +244,7 @@ impl<'a> VM<'a> {
                 self.push(obj);
                 ip + 1
             }
-            Opcode::Return => {
+            Opcode::ReturnValue => {
                 //let result = self.pop();
                 // self.pop_frame();
                 let last = self.last();
@@ -252,6 +252,22 @@ impl<'a> VM<'a> {
                 //self.stack.drain(self.free_start..self.sp - 1);
                 //println!("-------------------> return: {:?}", self.stack.len());
                 self.sp = self.free_start + 1;
+                //self.push(result);
+                // self.frees.pop();
+                //println!("return ip: {:?}", ip)    ;
+                let (ip, arg_start, _) = self.registers.pop().unwrap();
+                //println!("return: ip: {:?}, stack: {:?}", ip + 1, self.stack);
+                self.free_start = arg_start;
+                ip + 1
+            }
+            Opcode::Return => {
+                //let result = self.pop();
+                // self.pop_frame();
+                // let last = self.last();
+                // self.stack[self.free_start] = last.clone();
+                //self.stack.drain(self.free_start..self.sp - 1);
+                //println!("-------------------> return: {:?}", self.stack.len());
+                self.sp = self.free_start;
                 //self.push(result);
                 // self.frees.pop();
                 //println!("return ip: {:?}", ip)    ;

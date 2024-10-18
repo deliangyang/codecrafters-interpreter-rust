@@ -8,4 +8,10 @@ fun fibonacci(x) {
   }
 }
 
+fun test() {
+  print 2;
+}
+
 print fibonacci(35);
+
+test();

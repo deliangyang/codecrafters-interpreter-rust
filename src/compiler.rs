@@ -41,7 +41,7 @@ impl Compiler {
     pub fn get_instructions(&self) -> (usize, Vec<Opcode>) {
         let l = self.closure_ins.len();
         let mut instractions = self.closure_ins.clone();
-        instractions.extend( self.instructions.clone());
+        instractions.extend(self.instructions.clone());
         (l, instractions)
     }
 
@@ -81,13 +81,18 @@ impl Compiler {
                     self.compile_statement(stmt);
                 }
 
-                let instraction = self.leave_scope();
+                let mut instraction = self.leave_scope();
 
                 let symbols = self.symbols.borrow().clone();
                 let num_locals = symbols.num_definitions;
                 let num_parameters = args.len();
 
-                let start = self.instructions.len();
+                if instraction.last().unwrap() != &Opcode::Return {
+                    instraction.push(Opcode::LoadConstant(1));
+                    instraction.push(Opcode::Return);
+                }
+
+                let start = self.closure_ins.len();
 
                 self.closure_ins.extend(instraction.clone());
 
@@ -153,7 +158,7 @@ impl Compiler {
                 //     Opcode::Call(count) => self.emit(Opcode::TailCall(count)),
                 //     _ => self.emit(Opcode::Return)
                 // }
-                self.emit(Opcode::Return);
+                self.emit(Opcode::ReturnValue);
                 // if self.is_tail_call(stmt) {
                 //     self.emit(Opcode::TailCall(0));
                 // } else {
@@ -310,7 +315,7 @@ impl Compiler {
                 }
 
                 for pos in endif.iter() {
-                    self.instructions[*pos] = Opcode::Jump(self.instructions.len()-1);
+                    self.instructions[*pos] = Opcode::Jump(self.instructions.len() - 1);
                 }
             }
             _ => unimplemented!("Expression not implemented: {:?}", expr),
