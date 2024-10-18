@@ -46,7 +46,7 @@ impl<'a> VM<'a> {
         while ip < l {
             let instruction: &Opcode = self.instructions[ip];
             // println!("ip: {:?}, {:?}  {:?}, free_start: {:?}", ip, instruction, self.registers, self.free_start);
-            ip = self.execute(instruction, ip, ip >= self.main_start);
+            ip = self.execute(instruction, ip, l);
         }
 
         if self.sp <= 0 {
@@ -84,7 +84,7 @@ impl<'a> VM<'a> {
     }
 
     #[inline]
-    fn execute(&mut self, instruction: &Opcode, ip: usize, is_main: bool) -> usize {
+    fn execute(&mut self, instruction: &Opcode, ip: usize, l: usize) -> usize {
         match instruction {
             Opcode::Add
             | Opcode::Divide
@@ -119,7 +119,7 @@ impl<'a> VM<'a> {
                 if *obj == Object::Boolean(false) {
                     panic!("assert failed");
                 } else {
-                    if !is_main {
+                    if ip < l {
                         *pos
                     } else {
                         self.main_start + *pos
@@ -132,7 +132,7 @@ impl<'a> VM<'a> {
             Opcode::JumpIfFalse(pos) => {
                 let condition = self.pop();
                 if *condition == Object::Boolean(false) {
-                    if !is_main {
+                    if ip < l {
                         *pos
                     } else {
                         self.main_start + *pos
@@ -142,7 +142,7 @@ impl<'a> VM<'a> {
                 }
             }
             Opcode::Jump(pos) => {
-                if !is_main {
+                if ip < l {
                     *pos
                 } else {
                     self.main_start + *pos
