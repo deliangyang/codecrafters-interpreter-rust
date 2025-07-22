@@ -13,3 +13,4 @@ pub mod symbol;
 pub mod vm;
 pub mod frame;
 pub mod callstack;
+pub mod dump;

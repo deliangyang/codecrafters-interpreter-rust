@@ -288,6 +288,29 @@ impl<'a> VM<'a> {
                 // let obj = frame.get_local(index);
                 // self.push(obj);
             }
+            Opcode::Index => {
+                let right = &self.stack[self.sp - 1];
+                self.sp -= 1;
+                let left = &self.stack[self.sp - 1];
+                match (left, right) {
+                    (Object::Array(arr), Object::Index(index)) => {
+                        if let Some(obj) = arr.get(*index as usize) {
+                            self.push(obj.clone());
+                        } else {
+                            self.push(NIL);
+                        }
+                    }
+                    (Object::Array(arr), Object::Number(index)) => {
+                        if let Some(obj) = arr.get(*index as usize) {
+                            self.push(obj.clone());
+                        } else {
+                            self.push(NIL);
+                        }
+                    }
+                    _ => unimplemented!("Index operation not implemented for: {:?} and {:?}", left, right),
+                }
+                ip + 1
+            }
             _ => unimplemented!("unimplemented opcode: {:?}", instruction),
         }
     }

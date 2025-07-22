@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, ops::Index, rc::Rc};
 
 use crate::{
     ast::{ExprType, Literal, Program, Stmt},
@@ -166,6 +166,9 @@ impl Compiler {
                 //     // self.emit(Opcode::Return);
                 // }
             }
+            Stmt::Import(_) => {
+                // Imports are handled in the imports module
+            }
             _ => unimplemented!("Statement not implemented: {:?}", stmt),
         }
     }
@@ -239,6 +242,27 @@ impl Compiler {
                     Literal::String(s) => self.constants.push(Object::String(s.clone())),
                     Literal::Bool(b) => self.constants.push(Object::Boolean(*b)),
                     Literal::Nil => self.constants.push(Object::Nil),
+                    Literal::Array(arr) => {
+                        let mut objects = vec![];
+                        for item in arr.iter() {
+                            match item {
+                                ExprType::Literal(lit) => {
+                                    match lit {
+                                        Literal::Number(n) => objects.push(Object::Number(*n)),
+                                        Literal::String(s) => objects.push(Object::String(s.clone())),
+                                        Literal::Bool(b) => objects.push(Object::Boolean(*b)),
+                                        Literal::Nil => objects.push(Object::Nil),
+                                        _ => unimplemented!("Array item not implemented: {:?}", lit),
+                                    }
+                                }
+                                _ => unimplemented!("Array item not implemented: {:?}", item),
+                            }
+                        }
+                        self.constants.push(Object::Array(objects));
+                    }
+                    Literal::Index(index) => {
+                        self.constants.push(Object::Index(index.clone()));
+                    }
                     _ => unimplemented!("Literal not implemented: {:?}", lit),
                 }
                 self.emit_load_constant(index);
@@ -317,6 +341,11 @@ impl Compiler {
                 for pos in endif.iter() {
                     self.instructions[*pos] = Opcode::Jump(self.instructions.len() - 1);
                 }
+            }
+            ExprType::IndexExpr(left, right) => {
+                self.compile_expression(left);
+                self.compile_expression(right);
+                self.emit(Opcode::Index);
             }
             _ => unimplemented!("Expression not implemented: {:?}", expr),
         }

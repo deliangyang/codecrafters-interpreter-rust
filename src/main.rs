@@ -58,7 +58,7 @@ fn main() {
                     //     //     println!("\t\t{:04} {:?}", j, instruction);
                     //     // }
                     // }
-                    _ => println!("\t{:04} {:?}", i, constant)
+                    _ => println!("\t{:04} {:?}", i, constant),
                 }
             }
 
@@ -71,15 +71,22 @@ fn main() {
             for (i, instruction) in compile.instructions.iter().enumerate() {
                 match instruction {
                     Opcode::GetBuiltin(index) => {
-                        println!("\t{:04} {:?}\t\t# {:020}", i, instruction, compile.builtins.get_name(*index).unwrap());
+                        println!(
+                            "\t{:04} {:?}\t\t# {:020}",
+                            i,
+                            instruction,
+                            compile.builtins.get_name(*index).unwrap()
+                        );
                     }
                     Opcode::LoadConstant(index) => {
-                        println!("\t{:04} {:?}\t\t# {:?}", i, instruction, compile.constants[*index]);
+                        println!(
+                            "\t{:04} {:?}\t\t# {:?}",
+                            i, instruction, compile.constants[*index]
+                        );
                     }
-                    _ =>  println!("\t{:04} {:?}", i, instruction)
+                    _ => println!("\t{:04} {:?}", i, instruction),
                 }
             }
-
         }
         "compile" => {
             let lex = Lexing::new(&file_contents);
@@ -88,10 +95,13 @@ fn main() {
             if parse.has_errors() {
                 exit(65);
             }
+            let file_current_dir = Path::new(filename).parent().unwrap();
+            let mut import = Imports::new(program, file_current_dir.to_path_buf());
+            let program = import.load();
             let mut compiler = Compiler::new(program);
             compiler.compile();
             let (l, codes) = compiler.get_instructions();
-            let mut vm = VM::new((l, codes.iter().map(|x|x).collect()));
+            let mut vm = VM::new((l, codes.iter().map(|x| x).collect()));
             vm.define_constants(compiler.constants);
             let result = vm.run();
             println!("result: {:?}", result);
