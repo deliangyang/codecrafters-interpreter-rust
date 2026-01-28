@@ -12,7 +12,7 @@ pub struct Lexing<'a> {
 }
 
 impl<'a> Lexing<'a> {
-    pub fn new(input: &str) -> Lexing {
+    pub fn new(input: &'_ str) -> Lexing<'_> {
         let l = input.chars().count();
         let input = input.chars();
         Lexing {

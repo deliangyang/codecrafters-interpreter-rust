@@ -6,14 +6,14 @@ use crate::ast;
 
 pub type BuiltinFunc = fn(Vec<Object>) -> Object;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Object {
     Boolean(bool),
     Nil,
     Number(f64),
     Index(usize),
     String(String),
-    Array(Vec<Object>),
+    Array(Vec<Rc<Object>>),
     ReturnValue(Box<Object>),
     Hash(Rc<RefCell<HashMap<Object, Object>>>),
     Builtin(String, i32, BuiltinFunc),
@@ -33,6 +33,35 @@ pub enum Object {
     Closure {
         func: Rc<Object>,
     },
+}
+
+impl PartialEq for Object {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Object::Boolean(a), Object::Boolean(b)) => a == b,
+            (Object::Nil, Object::Nil) => true,
+            (Object::Number(a), Object::Number(b)) => a == b,
+            (Object::Index(a), Object::Index(b)) => a == b,
+            (Object::String(a), Object::String(b)) => a == b,
+            (Object::Array(a), Object::Array(b)) => a == b,
+            (Object::ReturnValue(a), Object::ReturnValue(b)) => a == b,
+            (Object::Hash(a), Object::Hash(b)) => a.borrow().iter().eq(b.borrow().iter()),
+            (Object::Builtin(name_a, arity_a, _), Object::Builtin(name_b, arity_b, _)) => {
+                name_a == name_b && arity_a == arity_b
+            }
+            (Object::Function(_, _), Object::Function(_, _)) => false,
+            (Object::Class(name_a, _), Object::Class(name_b, _)) => name_a == name_b,
+            (Object::ClassInstance { name: name_a, .. }, Object::ClassInstance { name: name_b, .. }) => {
+                name_a == name_b
+            }
+            (Object::CompiledFunction { start: s1, len: l1, num_locals: nl1, num_parameters: np1 },
+             Object::CompiledFunction { start: s2, len: l2, num_locals: nl2, num_parameters: np2 }) => {
+                s1 == s2 && l1 == l2 && nl1 == nl2 && np1 == np2
+            }
+            (Object::Closure { func: f1 }, Object::Closure { func: f2 }) => f1 == f2,
+            _ => false,
+        }
+    }
 }
 
 impl Eq for Object {}
@@ -73,7 +102,7 @@ impl Display for Object {
                     if i > 0 {
                         elements_str.push_str(", ");
                     }
-                    elements_str.push_str(&elem.to_string());
+                    elements_str.push_str(&elem.as_ref().to_string());
                 }
                 write!(f, "[{}]", elements_str)
             }

@@ -14,7 +14,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(mut lex: Lexing<'a>) -> Parser {
+    pub fn new(mut lex: Lexing) -> Parser {
         let prev = Token::Eof;
         let current = lex.next();
         let next = lex.next();

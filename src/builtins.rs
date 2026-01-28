@@ -162,7 +162,7 @@ fn append(args: Vec<Object>) -> Object {
         Object::Array(a) => a.clone(),
         _ => vec![],
     };
-    arr.extend(args[1..].iter().cloned());
+    arr.extend(args[1..].iter().map(|obj| std::rc::Rc::new(obj.clone())));
     Object::Array(arr)
 }
 

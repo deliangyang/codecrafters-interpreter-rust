@@ -1,11 +1,11 @@
-use std::{process::exit, vec};
+use std::{process::exit, rc::Rc, vec};
 
 use crate::{builtins::Builtins, objects::Object, opcode::Opcode};
 
 pub struct VM<'a> {
-    constants: Vec<Object>,
-    stack: Vec<Object>,
-    globals: Vec<Object>,
+    constants: Vec<Rc<Object>>,
+    stack: Vec<Rc<Object>>,
+    globals: Vec<Rc<Object>>,
     closures: Vec<(usize, usize)>,
     builtins: Builtins,
     sp: usize, // stack pointer
@@ -16,20 +16,23 @@ pub struct VM<'a> {
     stack_top: usize,
 }
 
-const NIL: Object = Object::Nil;
+fn nil() -> Rc<Object> {
+    Rc::new(Object::Nil)
+}
 // const TRUE: Object = Object::Boolean(true);
 // const FALSE: Object = Object::Boolean(false);
 
 const GLOBALS_SIZE: usize = 65536;
 
 impl<'a> VM<'a> {
-    pub fn new(ins: (usize, Vec<&'a Opcode>)) -> VM {
+    pub fn new(ins: (usize, Vec<&Opcode>)) -> VM<'_> {
+        let nil_obj = nil();
         VM {
             constants: Vec::new(),
-            stack: vec![NIL; 1024],
+            stack: vec![nil_obj.clone(); 1024],
             main_start: ins.0,
             instructions: ins.1,
-            globals: vec![NIL; GLOBALS_SIZE],
+            globals: vec![nil(); GLOBALS_SIZE],
             builtins: Builtins::new(),
             sp: 0,
             registers: Vec::with_capacity(1024),
@@ -50,12 +53,12 @@ impl<'a> VM<'a> {
         }
 
         if self.sp <= 0 {
-            return NIL;
+            return (*nil()).clone();
         }
-        self.pop().clone()
+        (*self.pop()).clone()
     }
 
-    fn push(&mut self, obj: Object) {
+    fn push(&mut self, obj: Rc<Object>) {
         if self.sp >= self.stack_top {
             self.stack.push(obj);
            // println!("stack: {:?}", self.stack);
@@ -67,20 +70,13 @@ impl<'a> VM<'a> {
         self.sp += 1;
     }
 
-    fn pop(&mut self) -> &Object {
+    fn pop(&mut self) -> Rc<Object> {
         self.sp -= 1;
-        &self.stack[self.sp]
-        // if self.sp == self.stack.len() {
-        //     self.stack.pop().unwrap()
-        // } else {
-        //     self.stack[self.sp].clone()
-        // }
-        // let obj = self.stack.pop().unwrap();
-        // obj
+        self.stack[self.sp].clone()
     }
 
-    fn last(&mut self) -> &Object {
-        &self.stack[self.sp - 1]
+    fn last(&mut self) -> Rc<Object> {
+        self.stack[self.sp - 1].clone()
     }
 
     #[inline]
@@ -97,7 +93,7 @@ impl<'a> VM<'a> {
                 let right = &self.stack[self.sp - 1];
                 self.sp -= 1;
                 let left = &self.stack[self.sp - 1];
-                self.stack[self.sp-1] = match (left, right) {
+                self.stack[self.sp-1] = Rc::new(match (left.as_ref(), right.as_ref()) {
                     (Object::Number(l), Object::Number(r)) => match instruction {
                         Opcode::Add => Object::Number(*l + *r),
                         Opcode::Divide => Object::Number(*l / *r),
@@ -110,8 +106,7 @@ impl<'a> VM<'a> {
                         _ => Object::Nil,
                     },
                     _ => Object::Nil,
-                };
-                // self.push(result.clone());
+                });
                 ip + 1
             }
             Opcode::Assert(pos) => {
@@ -158,23 +153,18 @@ impl<'a> VM<'a> {
             }
             Opcode::Abs => {
                 let obj = self.last();
-                self.stack[self.sp - 1] = Object::Number(match obj {
-                    Object::Number(n) => n.abs(),
-                    _ => 0.0,
+                self.stack[self.sp - 1] = Rc::new(match obj.as_ref() {
+                    Object::Number(n) => Object::Number(n.abs()),
+                    _ => Object::Number(0.0),
                 });
-                // self.push(Object::Number(match obj {
-                //     Object::Number(n) => n.abs(),
-                //     _ => 0.0,
-                // }));
                 ip + 1
             }
             Opcode::Nagetive => {
                 let obj = self.last();
-                self.stack[self.sp - 1] = Object::Number(match obj {
-                    Object::Number(n) => -n,
-                    _ => 0.0,
+                self.stack[self.sp - 1] = Rc::new(match obj.as_ref() {
+                    Object::Number(n) => Object::Number(-n),
+                    _ => Object::Number(0.0),
                 });
-                // self.push();
                 ip + 1
             }
             Opcode::Print(n) => {
@@ -195,7 +185,7 @@ impl<'a> VM<'a> {
             }
             Opcode::SetGlobal(index) => {
                 let obj = self.pop();
-                match obj {
+                match obj.as_ref() {
                     Object::CompiledFunction {
                         start,
                         len: _,
@@ -205,7 +195,7 @@ impl<'a> VM<'a> {
                         self.closures[*index] = (*start, *num_parameters);
                     }
                     _ => {
-                        self.globals[*index] = obj.clone();
+                        self.globals[*index] = obj;
                     }
                 }
                 ip + 1
@@ -215,15 +205,18 @@ impl<'a> VM<'a> {
                 if obj.is_none() {
                     unimplemented!("builtin not found: {:?}", index);
                 }
-                self.push(obj.unwrap().clone());
+                self.push(Rc::new(obj.unwrap().clone()));
                 ip + 1
             }
             Opcode::Call(n) => {
-                let func = self.pop().clone();
+                let func = self.pop();
                 // println!("----------> call: {:?}", func);
-                match func {
+                match func.as_ref() {
                     Object::Builtin(_, _, f) => {
-                        let args = self.stack[self.sp-n..self.sp].to_vec();
+                        let args: Vec<Object> = self.stack[self.sp-n..self.sp]
+                            .iter()
+                            .map(|obj| (*obj.as_ref()).clone())
+                            .collect();
                         self.sp -= n;
                         let _ = f(args);
                         ip + 1
@@ -248,7 +241,7 @@ impl<'a> VM<'a> {
                 //let result = self.pop();
                 // self.pop_frame();
                 let last = self.last();
-                self.stack[self.free_start] = last.clone();
+                self.stack[self.free_start] = last;
                 //self.stack.drain(self.free_start..self.sp - 1);
                 //println!("-------------------> return: {:?}", self.stack.len());
                 self.sp = self.free_start + 1;
@@ -292,19 +285,19 @@ impl<'a> VM<'a> {
                 let right = &self.stack[self.sp - 1];
                 self.sp -= 1;
                 let left = &self.stack[self.sp - 1];
-                match (left, right) {
+                match (left.as_ref(), right.as_ref()) {
                     (Object::Array(arr), Object::Index(index)) => {
                         if let Some(obj) = arr.get(*index as usize) {
                             self.push(obj.clone());
                         } else {
-                            self.push(NIL);
+                            self.push(nil());
                         }
                     }
                     (Object::Array(arr), Object::Number(index)) => {
                         if let Some(obj) = arr.get(*index as usize) {
                             self.push(obj.clone());
                         } else {
-                            self.push(NIL);
+                            self.push(nil());
                         }
                     }
                     _ => unimplemented!("Index operation not implemented for: {:?} and {:?}", left, right),
@@ -316,7 +309,7 @@ impl<'a> VM<'a> {
     }
 
     pub fn define_constants(&mut self, constants: Vec<Object>) {
-        self.constants = constants;
+        self.constants = constants.into_iter().map(|obj| Rc::new(obj)).collect();
     }
 }
 

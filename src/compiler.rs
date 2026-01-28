@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::Index, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     ast::{ExprType, Literal, Program, Stmt},
@@ -248,10 +248,10 @@ impl Compiler {
                             match item {
                                 ExprType::Literal(lit) => {
                                     match lit {
-                                        Literal::Number(n) => objects.push(Object::Number(*n)),
-                                        Literal::String(s) => objects.push(Object::String(s.clone())),
-                                        Literal::Bool(b) => objects.push(Object::Boolean(*b)),
-                                        Literal::Nil => objects.push(Object::Nil),
+                                        Literal::Number(n) => objects.push(std::rc::Rc::new(Object::Number(*n))),
+                                        Literal::String(s) => objects.push(std::rc::Rc::new(Object::String(s.clone()))),
+                                        Literal::Bool(b) => objects.push(std::rc::Rc::new(Object::Boolean(*b))),
+                                        Literal::Nil => objects.push(std::rc::Rc::new(Object::Nil)),
                                         _ => unimplemented!("Array item not implemented: {:?}", lit),
                                     }
                                 }

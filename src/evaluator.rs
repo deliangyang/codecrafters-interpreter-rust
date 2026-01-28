@@ -255,7 +255,7 @@ impl Evaluator {
                 Literal::Array(arr) => {
                     let mut elements = Vec::new();
                     for elem in arr {
-                        elements.push(self.evaluate_expr(elem).unwrap());
+                        elements.push(std::rc::Rc::new(self.evaluate_expr(elem).unwrap()));
                     }
                     Some(Object::Array(elements))
                 }
@@ -877,9 +877,9 @@ impl Evaluator {
         match left.clone() {
             Object::Array(arr) => {
                 if let Object::Index(index) = index {
-                    return Some(arr[index].clone());
+                    return Some((*arr[index]).clone());
                 } else if let Object::Number(index) = index {
-                    return Some(arr[index as usize].clone());
+                    return Some((*arr[index as usize]).clone());
                 }
                 return Some(Object::Nil);
             }
