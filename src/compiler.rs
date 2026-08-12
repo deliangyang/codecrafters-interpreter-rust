@@ -17,6 +17,7 @@ pub struct Compiler {
     pub builtins: Builtins,
     pub symbols: Rc<RefCell<SymbolTable>>,
     pub closure_ins: Vec<Opcode>,
+    current_function: Option<String>,
 }
 
 impl Compiler {
@@ -29,6 +30,7 @@ impl Compiler {
             pre_instructions: vec![],
             symbols: Rc::new(RefCell::new(SymbolTable::new())),
             closure_ins: vec![],
+            current_function: None,
         }
     }
 
@@ -66,6 +68,7 @@ impl Compiler {
             }
             Stmt::Function(ident, args, body) => {
                 let symbol = self.symbols.borrow_mut().define(ident.0.clone());
+                self.current_function = Some(ident.0.clone());
                 self.enter_scope();
 
                 for arg in args.iter() {
@@ -82,6 +85,7 @@ impl Compiler {
                 }
 
                 let mut instraction = self.leave_scope();
+                self.current_function = None;
 
                 let symbols = self.symbols.borrow().clone();
                 let num_locals = symbols.num_definitions;
@@ -153,18 +157,15 @@ impl Compiler {
             },
             Stmt::Return(expr) => {
                 self.compile_expression(expr);
-                // let last = self.instructions.last().unwrap().clone();
-                // match last {
-                //     Opcode::Call(count) => self.emit(Opcode::TailCall(count)),
-                //     _ => self.emit(Opcode::Return)
-                // }
-                self.emit(Opcode::ReturnValue);
-                // if self.is_tail_call(stmt) {
-                //     self.emit(Opcode::TailCall(0));
-                // } else {
-                //     self.emit(Opcode::ReturnValue);
-                //     // self.emit(Opcode::Return);
-                // }
+                // Check if last instruction is Closure (function call) - if so, convert to TailCall
+                if let Some(Opcode::Closure(index, nargs)) = self.instructions.last() {
+                    let (index, nargs) = (*index, *nargs);
+                    self.instructions.pop();
+                    // TailCall(index, nargs) - works like Closure but reuses frame
+                    self.emit(Opcode::TailCall(index, nargs));
+                } else {
+                    self.emit(Opcode::ReturnValue);
+                }
             }
             _ => unimplemented!("Statement not implemented: {:?}", stmt),
         }
@@ -267,7 +268,17 @@ impl Compiler {
                                 unimplemented!("Symbol not found: {:?}", ident);
                             }
                             let index = symbol.unwrap().index;
-                            self.emit(Opcode::Closure(index, args.len()));
+
+                            // Check if this is a recursive call (calling the current function)
+                            let is_recursive = self.current_function.as_ref()
+                                .map(|f| f == &ident.0)
+                                .unwrap_or(false);
+
+                            if is_recursive {
+                                self.emit(Opcode::MemoCall(index, args.len()));
+                            } else {
+                                self.emit(Opcode::Closure(index, args.len()));
+                            }
                         }
                     }
                     _ => unimplemented!("Callee not implemented: {:?}", callee),

@@ -77,7 +77,7 @@ impl Evaluator {
             }
             Stmt::Function(ident, args, body) => {
                 let name = ident.0.clone();
-                let object = Object::Function(args.clone(), body.clone());
+                let object = Object::Function(Box::new((args.clone(), body.clone())));
                 self.envs.borrow_mut().set_store(name, &object);
             }
             Stmt::Blank => {}
@@ -133,7 +133,7 @@ impl Evaluator {
                 self.envs = current_env;
             }
             Stmt::ClassStmt { name, properties } => {
-                let object = Object::Class(name.to_string().clone(), properties.clone());
+                let object = Object::Class(Box::new((name.to_string().clone(), properties.clone())));
                 self.envs
                     .borrow_mut()
                     .set(name.to_string().clone(), &object);
@@ -647,7 +647,7 @@ impl Evaluator {
                 return Some(Object::Nil);
             }
             ExprType::Function { params, body } => {
-                return Some(Object::Function(params.clone(), body.clone()));
+                return Some(Object::Function(Box::new((params.clone(), body.clone()))));
             }
             ExprType::ThisCall { method, args } => {
                 let class = self.envs.borrow_mut().get_current_class();
@@ -665,9 +665,11 @@ impl Evaluator {
                     let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                     self.envs = Rc::new(RefCell::new(pre_envs));
 
-                    if let Object::Function(params, stmts) =
+                    if let Object::Function(data) =
                         properties.borrow().get(&method.0).unwrap()
                     {
+                        let params = &data.0;
+                        let stmts = &data.1;
                         for (i, param) in params.iter().enumerate() {
                             let arg = self.evaluate_expr(&args[i]).unwrap();
                             self.envs.borrow_mut().set_store(param.0.clone(), &arg);
@@ -705,7 +707,9 @@ impl Evaluator {
                         }
                         return Some(fun(args_vec));
                     }
-                    Some(Object::Function(ident, stmts)) => {
+                    Some(Object::Function(data)) => {
+                        let ident = &data.0;
+                        let stmts = &data.1;
                         let current_env = Rc::clone(&self.envs);
                         let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                         self.envs = Rc::new(RefCell::new(pre_envs));
@@ -739,7 +743,8 @@ impl Evaluator {
 
                 let mut props = HashMap::new();
                 let mut fields = HashMap::new();
-                if let Object::Class(_, properties) = class.clone() {
+                if let Object::Class(data) = class.clone() {
+                    let properties = &data.1;
                     for property in properties.iter() {
                         match property {
                             Stmt::Var(ident, expr) => {
@@ -749,7 +754,7 @@ impl Evaluator {
                             }
                             Stmt::Function(ident, params, body) => {
                                 let name = ident.0.clone();
-                                let object = Object::Function(params.clone(), body.clone());
+                                let object = Object::Function(Box::new((params.clone(), body.clone())));
                                 props.insert(name, object);
                             }
                             _ => unimplemented!(),
@@ -764,7 +769,9 @@ impl Evaluator {
                         let current_env = Rc::clone(&self.envs);
                         let pre_envs = Env::new_with_outer(Rc::clone(&current_env));
                         self.envs = Rc::new(RefCell::new(pre_envs));
-                        if let Object::Function(params, body) = init_func {
+                        if let Object::Function(data) = init_func {
+                            let params = &data.0;
+                            let body = &data.1;
                             for (i, arg) in args.iter().enumerate() {
                                 let arg: Object = self.evaluate_expr(&arg).unwrap();
                                 let ident = params[i].0.clone();
@@ -806,9 +813,11 @@ impl Evaluator {
 
                     self.envs.borrow_mut().set_current_class(class.clone());
 
-                    if let Object::Function(params, stmts) =
+                    if let Object::Function(data) =
                         properties.borrow().get(&method.0).unwrap()
                     {
+                        let params = &data.0;
+                        let stmts = &data.1;
                         for (i, param) in args.iter().enumerate() {
                             let arg: Object = self.evaluate_expr(&param).unwrap();
                             self.envs.borrow_mut().set_store(params[i].0.clone(), &arg);

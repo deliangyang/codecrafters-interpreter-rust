@@ -91,7 +91,7 @@ fn main() {
             let mut compiler = Compiler::new(program);
             compiler.compile();
             let (l, codes) = compiler.get_instructions();
-            let mut vm = VM::new((l, codes.iter().map(|x|x).collect()));
+            let mut vm = VM::new((l, codes));
             vm.define_constants(compiler.constants);
             let result = vm.run();
             println!("result: {:?}", result);
@@ -198,4 +198,11 @@ fn main() {
             return;
         }
     }
+}
+
+fn _size_check() {
+    use std::mem;
+    use codecrafters_interpreter::objects::Object;
+    eprintln!("Object size: {}", mem::size_of::<Object>());
+    eprintln!("Opcode size: {}", mem::size_of::<Opcode>());
 }

@@ -17,8 +17,8 @@ pub enum Object {
     ReturnValue(Box<Object>),
     Hash(Rc<RefCell<HashMap<Object, Object>>>),
     Builtin(String, i32, BuiltinFunc),
-    Function(Vec<ast::Ident>, ast::BlockStmt),
-    Class(String, Vec<ast::Stmt>),
+    Function(Box<(Vec<ast::Ident>, ast::BlockStmt)>),
+    Class(Box<(String, Vec<ast::Stmt>)>),
     ClassInstance {
         name: String,
         fields: Rc<RefCell<HashMap<String, Object>>>,
@@ -56,15 +56,15 @@ impl Display for Object {
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
             Object::Builtin(s, c, func) => write!(f, "builtin function: {} {} {:?}", s, c, func),
-            Object::Function(params, body) => {
+            Object::Function(data) => {
                 let mut params_str = String::new();
-                for (i, param) in params.iter().enumerate() {
+                for (i, param) in data.0.iter().enumerate() {
                     if i > 0 {
                         params_str.push_str(", ");
                     }
                     params_str.push_str(&param.0);
                 }
-                write!(f, "fn({}) {:?}", params_str, body)
+                write!(f, "fn({}) {:?}", params_str, data.1)
             }
             Object::ReturnValue(obj) => write!(f, "{}", obj),
             Object::Array(elements) => {
@@ -85,9 +85,9 @@ impl Display for Object {
                 write!(f, "{{{}}}", hash_str)
             }
             Object::Index(i) => write!(f, "{}", i),
-            Object::Class(name, properties) => {
-                write!(f, "class {} {{\n", name)?;
-                for prop in properties {
+            Object::Class(data) => {
+                write!(f, "class {} {{\n", data.0)?;
+                for prop in &data.1 {
                     writeln!(f, "\t{}", prop)?;
                 }
                 write!(f, "}}")
